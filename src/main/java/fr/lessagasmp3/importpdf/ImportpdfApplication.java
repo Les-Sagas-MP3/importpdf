@@ -1,5 +1,9 @@
 package fr.lessagasmp3.importpdf;
 
+import fr.lessagasmp3.core.entity.Author;
+import fr.lessagasmp3.core.model.AuthorModel;
+import fr.lessagasmp3.core.repository.AuthorRepository;
+import fr.lessagasmp3.importpdf.service.AuthorService;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.pdfbox.text.PDFTextStripperByArea;
@@ -17,13 +21,16 @@ import org.springframework.context.event.EventListener;
 import java.io.File;
 import java.io.IOException;
 
-@SpringBootApplication(exclude={DataSourceAutoConfiguration.class, })
+@SpringBootApplication(exclude={DataSourceAutoConfiguration.class})
 public class ImportpdfApplication {
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(ImportpdfApplication.class);
 
 	@Autowired
 	private ConfigurableApplicationContext ctx;
+
+	@Autowired
+	private AuthorService authorService;
 
 	@Value("${fr.lessagasmp3.importpdf.root.folder}")
 	private String rootFolderPath;
@@ -64,27 +71,23 @@ public class ImportpdfApplication {
 			LOGGER.error("No pdf was detected");
 			throw new IllegalArgumentException();
 		}
+
 /*
 		for(int i = 0 ; i < 1 ; i++) {
 			//String content = "Donjon de Naheulbeuk.pdf";
 			//String content = "Dieu en peignoir (le).pdf";
 			String content = "Crash  La revanche.pdf";
-			String pdfPath = pdfsFolderPath + File.separator + content;
-			LOGGER.info("Opening {}", content);
-			parseFile(pdfPath);
+			parseFile(pdfsFolderPath, content);
 		}
 */
 		for (String content : contents) {
-			String pdfPath = pdfsFolderPath + File.separator + content;
-			LOGGER.info("File : {}", content);
-			parseFile(pdfPath);
+			parseFile(pdfsFolderPath, content);
 		}
-
 		ctx.close();
 
 	}
 
-	private void parseFile(String pdfPath) {
+	private void parseFile(String folderPath, String content) {
 
 		// Output data
 		String authors = null;
@@ -104,6 +107,8 @@ public class ImportpdfApplication {
 		String anecdotes = null;
 		String genese = null;
 
+		String pdfPath = folderPath + File.separator + content;
+		LOGGER.info("File : {}", content);
 		try (PDDocument document = PDDocument.load(new File(pdfPath))) {
 			if (!document.isEncrypted()) {
 				PDFTextStripperByArea stripper = new PDFTextStripperByArea();
@@ -111,6 +116,7 @@ public class ImportpdfApplication {
 				PDFTextStripper tStripper = new PDFTextStripper();
 				String pdfFileInText = tStripper.getText(document);
 
+				LOGGER.info("Parsing PDF");
 				//split by whitespace
 				String[] lines = pdfFileInText.split("\\r?\\n");
 				for (int lineNumber = 0 ; lineNumber < lines.length ; lineNumber++) {
@@ -166,7 +172,7 @@ public class ImportpdfApplication {
 					}
 
 					// Title
-					title = parseTitle(title, lines, lineNumber);
+					title = parseTitle(title, lines, lineNumber, content);
 
 					// Synopsis
 					String[] nextTagsSynopsis = {"ÉPISODE", "ANECDOTE", "GENÈSE"};
@@ -184,6 +190,35 @@ public class ImportpdfApplication {
 					String[] nextTagsGenese = {};
 					genese = parseMultilines(genese, "GENÈSE", nextTagsGenese, lines, lineNumber);
 				}
+
+				LOGGER.info("Build model");
+				if(authors != null) {
+					authors = authors.replace(" & ", "|")
+						.replace(" et ", "|")
+						.replace(", ", "|")
+						.replace("| ", "|")
+						.replace(" |", "|");
+					String[] splitAuthors = authors.split("\\|");
+					for (String authorStr : splitAuthors) {
+						AuthorModel author = authorService.findByName(authorStr);
+						if(author == null) {
+							author = new AuthorModel();
+							author.setName(authorStr);
+							author.setNbSagas(1);
+							authorService.create(author);
+							LOGGER.debug("Author {} created", author.getName());
+						} else {
+							LOGGER.debug("Author already exists : ID={} NAME={}", author.getId(), author.getName());
+
+							// TODO : Report those lines after saving saga
+							//author.setNbSagas(author.getNbSagas() + 1);
+							//authorService.update(author);
+							//LOGGER.debug("Author {} updated", author.getId());
+						}
+					}
+					LOGGER.debug("AUTHORS : {}", authors);
+				}
+
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -277,11 +312,16 @@ public class ImportpdfApplication {
 		return lineParsed;
 	}
 
-	private String parseTitle(String lineParsed, String[] lines, int lineNumber) {
+	private String parseTitle(String lineParsed, String[] lines, int lineNumber, String filename) {
 		if(lineParsed == null && lines[lineNumber+1].toUpperCase().contains("SYNOPSIS")) {
 			LOGGER.debug("TITLE recognized");
 			lineParsed = lines[lineNumber];
 			LOGGER.debug("TITLE : {}", lineParsed);
+			if(filename.length() > 34) {
+				LOGGER.warn("Filename length > 34, please verify title and distribution");
+				LOGGER.warn("TITLE : {}", lineParsed);
+				LOGGER.warn("FILENAME : {}", filename);
+			}
 		}
 		return lineParsed;
 	}
