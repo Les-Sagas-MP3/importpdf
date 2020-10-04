@@ -1,9 +1,11 @@
 package fr.lessagasmp3.importpdf;
 
-import fr.lessagasmp3.core.entity.Author;
-import fr.lessagasmp3.core.model.AuthorModel;
-import fr.lessagasmp3.core.repository.AuthorRepository;
-import fr.lessagasmp3.importpdf.service.AuthorService;
+import fr.lessagasmp3.core.entity.DistributionEntry;
+import fr.lessagasmp3.core.entity.Saga;
+import fr.lessagasmp3.core.model.CreatorModel;
+import fr.lessagasmp3.core.model.CategoryModel;
+import fr.lessagasmp3.importpdf.extractor.*;
+import fr.lessagasmp3.importpdf.parser.*;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.pdfbox.text.PDFTextStripperByArea;
@@ -20,57 +22,91 @@ import org.springframework.context.event.EventListener;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Set;
 
-@SpringBootApplication(exclude={DataSourceAutoConfiguration.class})
+@SpringBootApplication(exclude = {DataSourceAutoConfiguration.class})
 public class ImportpdfApplication {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(ImportpdfApplication.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(ImportpdfApplication.class);
 
-	@Autowired
-	private ConfigurableApplicationContext ctx;
+    @Autowired
+    private ConfigurableApplicationContext ctx;
 
-	@Autowired
-	private AuthorService authorService;
+    @Autowired
+    private BonusExtractor bonusExtractor;
 
-	@Value("${fr.lessagasmp3.importpdf.root.folder}")
-	private String rootFolderPath;
+    @Autowired
+    private DistributionExtractor distributionExtractor;
 
-	public static void main(String[] args) {
-		SpringApplication.run(ImportpdfApplication.class, args);
-	}
+    @Autowired
+    private LinesExtractor linesExtractor;
 
-	@EventListener(ApplicationReadyEvent.class)
-	public void init() {
-		LOGGER.info("Starting import");
+    @Autowired
+    private TitleExtractor titleExtractor;
 
-		File rootFolder = new File(rootFolderPath);
-		if(!rootFolder.exists() || !rootFolder.isDirectory()) {
-			LOGGER.error("The path {} does not exist or is not a directory", rootFolderPath);
-			throw new IllegalArgumentException();
-		}
-		LOGGER.info("{} : OK", rootFolderPath);
+    @Autowired
+    private WebsiteExtractor websiteExtractor;
 
-		String pdfsFolderPath = rootFolderPath + File.separator + "pdfs";
-		File pdfsFolder = new File(pdfsFolderPath);
-		if(!pdfsFolder.exists() || !pdfsFolder.isDirectory()) {
-			LOGGER.error("The path {} does not exist or is not a directory", pdfsFolderPath);
-			throw new IllegalArgumentException();
-		}
-		LOGGER.info("{} : OK", pdfsFolderPath);
+    @Autowired
+    private CreationParser creationParser;
 
-		String imagesFolderPath = rootFolderPath + File.separator + "images";
-		File imagesFolder = new File(pdfsFolderPath);
-		if(!imagesFolder.exists() || !imagesFolder.isDirectory()) {
-			LOGGER.error("The path {} does not exist or is not a directory", imagesFolderPath);
-			throw new IllegalArgumentException();
-		}
-		LOGGER.info("{} : OK", imagesFolderPath);
+    @Autowired
+    private CreatorParser creatorParser;
 
-		String[] contents = pdfsFolder.list();
-		if(contents == null) {
-			LOGGER.error("No pdf was detected");
-			throw new IllegalArgumentException();
-		}
+    @Autowired
+    private CategoryParser categoryParser;
+
+    @Autowired
+    private DistributionParser distributionParser;
+
+    @Autowired
+    private DurationParser durationParser;
+
+    @Autowired
+    private StatusParser statusParser;
+
+    @Value("${fr.lessagasmp3.importpdf.root.folder}")
+    private String rootFolderPath;
+
+    @Value("${fr.lessagasmp3.importpdf.ignoreManualCheck}")
+    private Boolean ignoreManualCheck;
+
+    public static void main(String[] args) {
+        SpringApplication.run(ImportpdfApplication.class, args);
+    }
+
+    @EventListener(ApplicationReadyEvent.class)
+    public void init() {
+        LOGGER.info("Starting import");
+
+        File rootFolder = new File(rootFolderPath);
+        if (!rootFolder.exists() || !rootFolder.isDirectory()) {
+            LOGGER.error("The path {} does not exist or is not a directory", rootFolderPath);
+            throw new IllegalArgumentException();
+        }
+        LOGGER.info("{} : OK", rootFolderPath);
+
+        String pdfsFolderPath = rootFolderPath + File.separator + "pdfs";
+        File pdfsFolder = new File(pdfsFolderPath);
+        if (!pdfsFolder.exists() || !pdfsFolder.isDirectory()) {
+            LOGGER.error("The path {} does not exist or is not a directory", pdfsFolderPath);
+            throw new IllegalArgumentException();
+        }
+        LOGGER.info("{} : OK", pdfsFolderPath);
+
+        String imagesFolderPath = rootFolderPath + File.separator + "images";
+        File imagesFolder = new File(pdfsFolderPath);
+        if (!imagesFolder.exists() || !imagesFolder.isDirectory()) {
+            LOGGER.error("The path {} does not exist or is not a directory", imagesFolderPath);
+            throw new IllegalArgumentException();
+        }
+        LOGGER.info("{} : OK", imagesFolderPath);
+
+        String[] contents = pdfsFolder.list();
+        if (contents == null) {
+            LOGGER.error("No pdf was detected");
+            throw new IllegalArgumentException();
+        }
 
 /*
 		for(int i = 0 ; i < 1 ; i++) {
@@ -80,281 +116,208 @@ public class ImportpdfApplication {
 			parseFile(pdfsFolderPath, content);
 		}
 */
-		for (String content : contents) {
-			parseFile(pdfsFolderPath, content);
-		}
-		ctx.close();
+        for (String content : contents) {
+            parseFile(pdfsFolderPath, content);
+        }
 
-	}
+        ctx.close();
 
-	private void parseFile(String folderPath, String content) {
+    }
 
-		// Output data
-		String authors = null;
-		String music = null;
-		String origin = null;
-		String kind = null;
-		String style= null;
-		String status = null;
-		String creation = null;
-		String duration = null;
-		String bonus = null;
-		String website = null;
-		String distribution = null;
-		String title = null;
-		String synopsis = null;
-		String episodes = null;
-		String anecdotes = null;
-		String genese = null;
+    private void parseFile(String folderPath, String content) {
 
-		String pdfPath = folderPath + File.separator + content;
-		LOGGER.info("File : {}", content);
-		try (PDDocument document = PDDocument.load(new File(pdfPath))) {
-			if (!document.isEncrypted()) {
-				PDFTextStripperByArea stripper = new PDFTextStripperByArea();
-				stripper.setSortByPosition(true);
-				PDFTextStripper tStripper = new PDFTextStripper();
-				String pdfFileInText = tStripper.getText(document);
+        // Output data
+        String authors;
+        String music;
+        String origin;
+        String kind;
+        String style;
+        String status;
+        String creation;
+        String duration;
+        String bonus;
+        String website;
+        String distribution;
+        String title;
+        String synopsis;
+        String episodes;
+        String anecdotes;
+        String genese;
+        Boolean[] needsManualCheck;
 
-				LOGGER.info("Parsing PDF");
-				//split by whitespace
-				String[] lines = pdfFileInText.split("\\r?\\n");
-				for (int lineNumber = 0 ; lineNumber < lines.length ; lineNumber++) {
-					String line = lines[lineNumber];
-					LOGGER.debug("Analyzing line {} : {}", lineNumber, line);
+        String pdfPath = folderPath + File.separator + content;
+        LOGGER.info("File : {}", content);
+        try (PDDocument document = PDDocument.load(new File(pdfPath))) {
 
-					// Table on left
-					String[] lineSplitColon = line.split(": ");
-					if(lineSplitColon.length >= 2) {
+            authors = null;
+            music = null;
+            origin = null;
+            kind = null;
+            style = null;
+            status = null;
+            creation = null;
+            duration = null;
+            bonus = null;
+            website = null;
+            distribution = null;
+            title = null;
+            synopsis = null;
+            episodes = null;
+            anecdotes = null;
+            genese = null;
+            needsManualCheck = new Boolean[]{Boolean.FALSE};
 
-						// Author
-						String[] nextTagsAuthor = {"MUSIQUE", "ORIGIN"};
-						authors = parseLines(authors, "AUTEUR", nextTagsAuthor, lines, lineNumber);
+            if (!document.isEncrypted()) {
+                PDFTextStripperByArea stripper = new PDFTextStripperByArea();
+                stripper.setSortByPosition(true);
+                PDFTextStripper tStripper = new PDFTextStripper();
+                String pdfFileInText = tStripper.getText(document);
 
-						// Music
-						String[] nextTagsMusic = {"ORIGIN"};
-						music = parseLines(music, "MUSIQUE", nextTagsMusic, lines, lineNumber);
+                LOGGER.info("Parsing PDF");
+                //split by whitespace
+                String[] lines = pdfFileInText.split("\\r?\\n");
+                for (int lineNumber = 0; lineNumber < lines.length; lineNumber++) {
+                    String line = lines[lineNumber];
+                    LOGGER.debug("Analyzing line {} : {}", lineNumber, line);
 
-						// Origin
-						String[] nextTagOrigin = {"GENRE"};
-						origin = parseLines(origin, "ORIGIN", nextTagOrigin, lines, lineNumber);
+                    // Table on left
+                    String[] lineSplitColon = line.split(": ");
+                    if (lineSplitColon.length >= 2) {
 
-						// Kind
-						String[] nextTagKind = {"STYLE"};
-						kind = parseLines(kind, "GENRE", nextTagKind, lines, lineNumber);
+                        // Creator
+                        String[] nextTagsAuthor = {"MUSIQUE", "ORIGIN"};
+                        authors = linesExtractor.extractLines(authors, "AUTEUR", nextTagsAuthor, lines, lineNumber);
 
-						// Style
-						String[] nextTagStyle = {"CRÉATION", "STATUT"};
-						style = parseLines(style, "STYLE", nextTagStyle, lines, lineNumber);
+                        // Music
+                        String[] nextTagsMusic = {"ORIGIN"};
+                        music = linesExtractor.extractLines(music, "MUSIQUE", nextTagsMusic, lines, lineNumber);
 
-						// Status
-						String[] nextTagStatus = {"CRÉATION", "SAISON", "SÉRIE", "ARC", "1ER SÉRIE", "BLOC 1", "CYCLE 1", "OPUS 1"};
-						status = parseLines(status, "STATUT", nextTagStatus, lines, lineNumber);
+                        // Origin
+                        String[] nextTagOrigin = {"GENRE"};
+                        origin = linesExtractor.extractLines(origin, "ORIGIN", nextTagOrigin, lines, lineNumber);
 
-						// Creation
-						String[] nextTagCreation = {"STATUT", "SAISON", "SÉRIE", "ARC", "1ER SÉRIE", "BLOC 1", "CYCLE 1", "OPUS 1"};
-						creation = parseLines(creation, "CRÉATION", nextTagCreation, lines, lineNumber);
+                        // Kind
+                        String[] nextTagKind = {"STYLE"};
+                        kind = linesExtractor.extractLines(kind, "GENRE", nextTagKind, lines, lineNumber);
 
-						// Duration
-						String[] nextTagDuration = {"BONUS"};
-						duration = parseLines(duration, "DURÉE", nextTagDuration, lines, lineNumber);
+                        // Style
+                        String[] nextTagStyle = {"CRÉATION", "STATUT"};
+                        style = linesExtractor.extractLines(style, "STYLE", nextTagStyle, lines, lineNumber);
 
-						// Bonus
-						bonus = parseBonus(bonus, lines, lineNumber);
-					}
+                        // Status
+                        String[] nextTagStatus = {"CRÉATION", "SAISON", "SÉRIE", "ARC", "1ER SÉRIE", "BLOC 1", "CYCLE 1", "OPUS 1"};
+                        status = linesExtractor.extractLines(status, "STATUT", nextTagStatus, lines, lineNumber);
 
-					// Website
-					website = parseWebsite(website, lines, lineNumber);
+                        // Creation
+                        String[] nextTagCreation = {"STATUT", "SAISON", "SÉRIE", "ARC", "1ER SÉRIE", "BLOC 1", "CYCLE 1", "OPUS 1"};
+                        creation = linesExtractor.extractLines(creation, "CRÉATION", nextTagCreation, lines, lineNumber);
 
-					// Distribution
-					if(bonus != null && title == null && !line.contains("Bonus : ") && (line.split(" - ").length >= 2 || line.split(" : ").length >= 2)) {
-						distribution = parseDistribution(distribution, lines, lineNumber);
-					}
+                        // Duration
+                        String[] nextTagDuration = {"BONUS"};
+                        duration = linesExtractor.extractLines(duration, "DURÉE", nextTagDuration, lines, lineNumber);
 
-					// Title
-					title = parseTitle(title, lines, lineNumber, content);
+                        // Bonus
+                        bonus = bonusExtractor.extract(bonus, lines, lineNumber);
+                    }
 
-					// Synopsis
-					String[] nextTagsSynopsis = {"ÉPISODE", "ANECDOTE", "GENÈSE"};
-					synopsis = parseMultilines(synopsis, "SYNOPSIS", nextTagsSynopsis, lines, lineNumber);
+                    // Website
+                    website = websiteExtractor.extract(website, lines, lineNumber);
 
-					// Episodes
-					String[] nextTagsEpisodes = {"ANECDOTE", "GENÈSE"};
-					episodes = parseMultilines(episodes, "ÉPISODE", nextTagsEpisodes, lines, lineNumber);
+                    // Distribution
+                    if (bonus != null && title == null && !line.contains("Bonus : ") && (line.split(" - ").length >= 2 || line.split(" : ").length >= 2)) {
+                        distribution = distributionExtractor.extract(distribution, lines, lineNumber);
+                    }
 
-					// Anecdotes
-					String[] nextTagsAnecdotes = {"GENÈSE"};
-					anecdotes = parseMultilines(anecdotes, "ANECDOTE", nextTagsAnecdotes, lines, lineNumber);
+                    // Title
+                    title = titleExtractor.extract(title, lines, lineNumber, content, needsManualCheck);
 
-					// Anecdotes
-					String[] nextTagsGenese = {};
-					genese = parseMultilines(genese, "GENÈSE", nextTagsGenese, lines, lineNumber);
-				}
+                    // Synopsis
+                    String[] nextTagsSynopsis = {"ÉPISODE", "ANECDOTE", "GENÈSE"};
+                    synopsis = linesExtractor.extractMultilines(synopsis, "SYNOPSIS", nextTagsSynopsis, lines, lineNumber);
 
-				LOGGER.info("Build model");
-				if(authors != null) {
-					authors = authors.replace(" & ", "|")
-						.replace(" et ", "|")
-						.replace(", ", "|")
-						.replace("| ", "|")
-						.replace(" |", "|");
-					String[] splitAuthors = authors.split("\\|");
-					for (String authorStr : splitAuthors) {
-						AuthorModel author = authorService.findByName(authorStr);
-						if(author == null) {
-							author = new AuthorModel();
-							author.setName(authorStr);
-							author.setNbSagas(1);
-							authorService.create(author);
-							LOGGER.debug("Author {} created", author.getName());
-						} else {
-							LOGGER.debug("Author already exists : ID={} NAME={}", author.getId(), author.getName());
+                    // Episodes
+                    String[] nextTagsEpisodes = {"ANECDOTE", "GENÈSE"};
+                    episodes = linesExtractor.extractMultilines(episodes, "ÉPISODE", nextTagsEpisodes, lines, lineNumber);
 
-							// TODO : Report those lines after saving saga
-							//author.setNbSagas(author.getNbSagas() + 1);
-							//authorService.update(author);
-							//LOGGER.debug("Author {} updated", author.getId());
-						}
-					}
-					LOGGER.debug("AUTHORS : {}", authors);
-				}
+                    // Anecdotes
+                    String[] nextTagsAnecdotes = {"GENÈSE"};
+                    anecdotes = linesExtractor.extractMultilines(anecdotes, "ANECDOTE", nextTagsAnecdotes, lines, lineNumber);
 
-			}
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+                    // Anecdotes
+                    String[] nextTagsGenese = {};
+                    genese = linesExtractor.extractMultilines(genese, "GENÈSE", nextTagsGenese, lines, lineNumber);
+                }
 
-	}
+                if(!ignoreManualCheck || !needsManualCheck[0]) {
+                    Set<CreatorModel> authorsSet;
+                    Set<CreatorModel> composers;
+                    Set<CategoryModel> styles;
+                    Set<CategoryModel> kinds;
+                    Set<DistributionEntry> distributionEntries;
+                    Saga saga = new Saga();
+                    LOGGER.info("Build model");
+/*
+                    if(authors != null) {
+                        authorsSet = creatorParser.parse(authors);
+                        LOGGER.debug("AUTHORS : {}", authorsSet);
+                    }
 
-	private String parseLines(String lineParsed, String enterringTag, String[] nextTags, String[] lines, int lineNumber) {
-		String line = lines[lineNumber];
-		if(lineParsed == null && line.toUpperCase().startsWith(enterringTag)) {
-			LOGGER.debug("{} recognized", enterringTag);
-			StringBuilder separatedEntities = new StringBuilder();
-			String[] lineSplitColon = line.split(": ");
-			separatedEntities.append(lineSplitColon[1]);
-			String nextLine = lines[lineNumber+1].toUpperCase();
-			boolean reachedNextTag = false;
-			for(String nextTag : nextTags) {
-				reachedNextTag|= nextLine.startsWith(nextTag);
-			}
-			while(!reachedNextTag) {
-				lineNumber++;
-				separatedEntities.append(lines[lineNumber]);
-				LOGGER.debug(lines[lineNumber]);
-				nextLine = lines[lineNumber+1].toUpperCase();
-				for(String nextTag : nextTags) {
-					reachedNextTag|= nextLine.startsWith(nextTag);
-				}
-			}
-			lineParsed = separatedEntities.toString();
-			LOGGER.debug("{} : {}", enterringTag, lineParsed);
-		}
-		return lineParsed;
-	}
+                    if(music != null) {
+                        composers = creatorParser.parse(music);
+                        LOGGER.debug("MUSIC : {}", composers);
+                    }
 
-	private String parseBonus(String lineParsed, String[] lines, int lineNumber) {
-		String enterringTag = "BONUS";
-		String line = lines[lineNumber];
-		if(lineParsed == null && line.toUpperCase().startsWith(enterringTag)) {
-			LOGGER.debug("{} recognized", enterringTag);
-			StringBuilder separatedEntities = new StringBuilder();
-			String[] lineSplitColon = line.split(": ");
-			separatedEntities.append(lineSplitColon[1]);
-			lineParsed = separatedEntities.toString();
-			LOGGER.debug("{} : {}", enterringTag, lineParsed);
-		}
-		return lineParsed;
-	}
+                    if(origin != null && !origin.startsWith("-")) {
+                        saga.setOrigin(origin);
+                    }
 
-	private String parseWebsite(String lineParsed, String[] lines, int lineNumber) {
-		String line = lines[lineNumber];
-		if(lineParsed == null && (line.startsWith("http://") || line.startsWith("https://"))) {
-			LOGGER.debug("WEBSITE recognized");
-			StringBuilder separatedEntities = new StringBuilder();
-			separatedEntities.append(line);
-			String nextLine = lines[lineNumber+1].toUpperCase();
-			boolean reachedNextPart = nextLine.indexOf(" ") != nextLine.length()-1 && nextLine.contains(" ");
-			while(!reachedNextPart) {
-				lineNumber++;
-				separatedEntities.append(lines[lineNumber]);
-				LOGGER.debug(lines[lineNumber]);
-				nextLine = lines[lineNumber+1].toUpperCase();
-				reachedNextPart = nextLine.contains(" ");
-			}
-			lineParsed = separatedEntities.toString();
-			LOGGER.debug("WEBSITE : {}", lineParsed);
-		}
-		return lineParsed;
-	}
+                    if(kind != null) {
+                        kinds = categoryParser.parse(kind);
+                        LOGGER.debug("KINDS: {}", kinds);
+                    }
 
-	private String parseDistribution(String lineParsed, String[] lines, int lineNumber) {
-		String line = lines[lineNumber];
-		if(lineParsed == null && !(line.startsWith("http://") || line.startsWith("https://")) && !lines[lineNumber+1].toUpperCase().contains("SYNOPSIS")) {
-			LOGGER.debug("DISTRIBUTION recognized");
-			StringBuilder separatedEntities = new StringBuilder();
-			separatedEntities.append(line);
-			separatedEntities.append("\n");
-			String nextLine = lines[lineNumber+2].toUpperCase();
-			boolean reachedNextTag = nextLine.contains("SYNOPSIS");
-			while(!reachedNextTag) {
-				lineNumber++;
-				line = lines[lineNumber];
-				separatedEntities.append(line);
-				separatedEntities.append("\n");
-				LOGGER.debug(lines[lineNumber]);
-				nextLine = lines[lineNumber+2].toUpperCase();
-				reachedNextTag = nextLine.contains("SYNOPSIS");
-			}
-			lineParsed = separatedEntities.toString();
-			LOGGER.debug("DISTRIBUTION : {}", lineParsed);
-		}
-		return lineParsed;
-	}
+                    if(style != null) {
+                        styles = categoryParser.parse(style);
+                        LOGGER.debug("STYLES : {}", styles);
+                    }
 
-	private String parseTitle(String lineParsed, String[] lines, int lineNumber, String filename) {
-		if(lineParsed == null && lines[lineNumber+1].toUpperCase().contains("SYNOPSIS")) {
-			LOGGER.debug("TITLE recognized");
-			lineParsed = lines[lineNumber];
-			LOGGER.debug("TITLE : {}", lineParsed);
-			if(filename.length() > 34) {
-				LOGGER.warn("Filename length > 34, please verify title and distribution");
-				LOGGER.warn("TITLE : {}", lineParsed);
-				LOGGER.warn("FILENAME : {}", filename);
-			}
-		}
-		return lineParsed;
-	}
+                    if(status != null) {
+                        saga.setStatus(statusParser.parse(status));
+                        LOGGER.debug("STATUS : {}", saga.getStatus());
+                    }
 
-	private String parseMultilines(String lineParsed, String enterringTag, String[] nextTags, String[] lines, int lineNumber) {
-		if(lineParsed == null && lines[lineNumber].toUpperCase().startsWith(enterringTag)) {
-			LOGGER.debug("{} recognized", enterringTag);
-			StringBuilder separatedEntities = new StringBuilder();
-			String nextLine = lines[lineNumber+1].toUpperCase();
-			boolean reachedNextTag = lineNumber+1 >= lines.length;
-			for(String nextTag : nextTags) {
-				reachedNextTag|= nextLine.startsWith(nextTag);
-			}
-			while(!reachedNextTag) {
-				lineNumber++;
-				separatedEntities.append(lines[lineNumber]);
-				separatedEntities.append("\n");
-				LOGGER.debug(lines[lineNumber]);
-				if(lineNumber+1 < lines.length) {
-					nextLine = lines[lineNumber + 1].toUpperCase();
-					for(String nextTag : nextTags) {
-						reachedNextTag|= nextLine.startsWith(nextTag);
-					}
-				} else {
-					reachedNextTag = true;
-				}
-			}
-			lineParsed = separatedEntities.toString();
-			LOGGER.debug("{} : {}", enterringTag, lineParsed);
-		}
-		return lineParsed;
-	}
+                    if(creation != null) {
+                        saga.setStartDate(creationParser.parse(creation));
+                        LOGGER.debug("CREATION : {}", saga.getStartDate());
+                    }
 
+                    if (duration != null) {
+                        saga.setDuration(durationParser.parse(duration));
+                        LOGGER.debug("DURATION : {}", saga.getDuration());
+                    }
+
+                    if(website != null) {
+                        saga.setUrl(website);
+                        LOGGER.debug("WEBSITE : {}", saga.getUrl());
+                    }
+*/
+                    if(distribution != null) {
+                        distributionEntries = distributionParser.parse(distribution);
+                        distributionEntries.forEach(distributionEntry -> {
+                            LOGGER.info("{} - {}", distributionEntry.getActor(), distributionEntry.getRoles());
+                        });
+                    }
+
+                } else {
+                    LOGGER.warn("Build model of {} ignored", content);
+                }
+
+            }
+        } catch (IOException e) {
+            LOGGER.error(e.getMessage(), e);
+        }
+
+    }
 
 
 }
