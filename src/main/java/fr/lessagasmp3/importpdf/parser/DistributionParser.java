@@ -24,7 +24,6 @@ public class DistributionParser {
         Set<DistributionEntry> distributionEntries = new LinkedHashSet<>();
         for(int lineNumber = 0 ; lineNumber < lines.length ; lineNumber++) {
             String[] lineSplit = lines[lineNumber].split(" - ");
-            LOGGER.info(lines[lineNumber]);
             StringBuilder currentRoles;
             if(lineSplit.length == 2) {
                 DistributionEntry distributionEntry = new DistributionEntry();
@@ -34,7 +33,6 @@ public class DistributionParser {
                     boolean newCreatorFound = lines[lineNumber+1].split(" - ").length > 1;
                     while(!newCreatorFound) {
                         lineNumber++;
-                        LOGGER.info(lines[lineNumber]);
                         currentRoles.append(lines[lineNumber]);
                         if(lineNumber+1 < lines.length) {
                             newCreatorFound = lines[lineNumber+1].split(" - ").length > 1;

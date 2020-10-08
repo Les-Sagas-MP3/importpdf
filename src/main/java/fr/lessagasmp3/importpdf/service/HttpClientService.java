@@ -1,31 +1,50 @@
 package fr.lessagasmp3.importpdf.service;
 
+import com.google.gson.Gson;
 import fr.lessagasmp3.core.constant.Strings;
 import org.apache.http.HttpException;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpRequest;
 import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
+import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.conn.routing.HttpRoute;
 import org.apache.http.conn.routing.HttpRoutePlanner;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.conn.DefaultProxyRoutePlanner;
 import org.apache.http.protocol.HttpContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.InetSocketAddress;
-import java.net.ProxySelector;
-import java.net.http.HttpClient;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
 @Service
 public class HttpClientService {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(HttpClientService.class);
+
     private static final String HTTP_PROXY = System.getenv("HTTP_PROXY");
 
-    public CloseableHttpClient getHttpClient() {
+    @Autowired
+    protected Gson gson;
+
+    @Value("${fr.lessagasmp3.core.url}")
+    protected String coreUrl;
+
+    @Value("${fr.lessagasmp3.core.token}")
+    protected String token;
+
+    protected CloseableHttpClient getHttpClient() {
 
         CloseableHttpClient httpClient;
 
@@ -57,6 +76,41 @@ public class HttpClientService {
         return httpClient;
     }
 
+    protected String executeRequest(HttpRequestBase request) {
+        request.addHeader("Content-Type", "application/json; charset=UTF-8");
+        request.addHeader("Authorization", "Bearer " + token);
+        CloseableHttpResponse response;
+        try (CloseableHttpClient httpClient = getHttpClient()) {
+            response = httpClient.execute(request);
+            String responseString = getStringResponse(response);
+            LOGGER.debug("response : " + responseString);
+            return responseString;
+        } catch (IOException e) {
+            LOGGER.error(e.getMessage(), e);
+        }
+        return null;
+    }
+
+    protected String executeRequest(HttpEntityEnclosingRequestBase request, String body) {
+        request.addHeader("Content-Type", "application/json; charset=UTF-8");
+        request.addHeader("Authorization", "Bearer " + token);
+        CloseableHttpResponse response;
+        try (CloseableHttpClient httpClient = getHttpClient()) {
+            request.setEntity(new StringEntity(body));
+            response = httpClient.execute(request);
+            String responseString = getStringResponse(response);
+            if(response.getStatusLine().getStatusCode() == 200) {
+                LOGGER.debug("response : " + responseString);
+                return responseString;
+            } else {
+                LOGGER.error("response : " + responseString);
+            }
+        } catch (IOException e) {
+            LOGGER.error(e.getMessage(), e);
+        }
+        return null;
+    }
+
     public String getStringResponse(CloseableHttpResponse response) throws IOException {
         BufferedReader reader = new BufferedReader(new InputStreamReader(response.getEntity().getContent()));
         String inputLine;
@@ -65,6 +119,14 @@ public class HttpClientService {
             responseString.append(inputLine);
         }
         return responseString.toString();
+    }
+
+    protected static String encodeValue(String value) {
+        try {
+            return URLEncoder.encode(value, StandardCharsets.UTF_8.toString());
+        } catch (UnsupportedEncodingException ex) {
+            throw new RuntimeException(ex.getCause());
+        }
     }
 
 }

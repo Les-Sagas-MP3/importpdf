@@ -2,8 +2,9 @@ package fr.lessagasmp3.importpdf;
 
 import fr.lessagasmp3.core.entity.DistributionEntry;
 import fr.lessagasmp3.core.entity.Saga;
-import fr.lessagasmp3.core.model.CreatorModel;
+import fr.lessagasmp3.core.entity.Season;
 import fr.lessagasmp3.core.model.CategoryModel;
+import fr.lessagasmp3.core.model.CreatorModel;
 import fr.lessagasmp3.importpdf.extractor.*;
 import fr.lessagasmp3.importpdf.parser.*;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -63,7 +64,13 @@ public class ImportpdfApplication {
     private DurationParser durationParser;
 
     @Autowired
+    private EpisodeParser episodeParser;
+
+    @Autowired
     private StatusParser statusParser;
+
+    @Autowired
+    private TextParser textParser;
 
     @Value("${fr.lessagasmp3.importpdf.root.folder}")
     private String rootFolderPath;
@@ -143,6 +150,7 @@ public class ImportpdfApplication {
         String episodes;
         String anecdotes;
         String genese;
+        String recompenses;
         Boolean[] needsManualCheck;
 
         String pdfPath = folderPath + File.separator + content;
@@ -163,8 +171,9 @@ public class ImportpdfApplication {
             title = null;
             synopsis = null;
             episodes = null;
-            anecdotes = null;
             genese = null;
+            anecdotes = null;
+            recompenses = null;
             needsManualCheck = new Boolean[]{Boolean.FALSE};
 
             if (!document.isEncrypted()) {
@@ -239,13 +248,17 @@ public class ImportpdfApplication {
                     String[] nextTagsEpisodes = {"ANECDOTE", "GENÈSE"};
                     episodes = linesExtractor.extractMultilines(episodes, "ÉPISODE", nextTagsEpisodes, lines, lineNumber);
 
-                    // Anecdotes
-                    String[] nextTagsAnecdotes = {"GENÈSE"};
-                    anecdotes = linesExtractor.extractMultilines(anecdotes, "ANECDOTE", nextTagsAnecdotes, lines, lineNumber);
+                    // Genese
+                    String[] nextTagsGenese = {"ANECDOTES"};
+                    genese = linesExtractor.extractMultilines(genese, "GENÈSE", nextTagsGenese, lines, lineNumber);
 
                     // Anecdotes
-                    String[] nextTagsGenese = {};
-                    genese = linesExtractor.extractMultilines(genese, "GENÈSE", nextTagsGenese, lines, lineNumber);
+                    String[] nextTagsAnecdotes = {"RÉCOMPENSES"};
+                    anecdotes = linesExtractor.extractMultilines(anecdotes, "ANECDOTE", nextTagsAnecdotes, lines, lineNumber);
+
+                    // Recompenses
+                    String[] nextTagsRecompenses = {};
+                    recompenses = linesExtractor.extractMultilines(recompenses, "RÉCOMPENSES", nextTagsRecompenses, lines, lineNumber);
                 }
 
                 if(!ignoreManualCheck || !needsManualCheck[0]) {
@@ -254,6 +267,7 @@ public class ImportpdfApplication {
                     Set<CategoryModel> styles;
                     Set<CategoryModel> kinds;
                     Set<DistributionEntry> distributionEntries;
+                    Set<Season> seasonsSet;
                     Saga saga = new Saga();
                     LOGGER.info("Build model");
 /*
@@ -300,14 +314,34 @@ public class ImportpdfApplication {
                         saga.setUrl(website);
                         LOGGER.debug("WEBSITE : {}", saga.getUrl());
                     }
-*/
+
                     if(distribution != null) {
                         distributionEntries = distributionParser.parse(distribution);
                         distributionEntries.forEach(distributionEntry -> {
-                            LOGGER.info("{} - {}", distributionEntry.getActor(), distributionEntry.getRoles());
+                            LOGGER.debug("{} - {}", distributionEntry.getActor(), distributionEntry.getRoles());
                         });
                     }
 
+                    if(title != null) {
+                        saga.setTitle(title);
+                        LOGGER.debug("TITLE : {}", saga.getTitle());
+                    }
+*/
+
+                    if(synopsis != null) {
+                        saga.setSynopsis(textParser.parse(synopsis));
+                        LOGGER.debug("SYNOPSIS : {}", saga.getSynopsis());
+                    }
+
+                    if(episodes != null) {
+                        seasonsSet = episodeParser.parse(episodes);
+                        seasonsSet.forEach(season -> {
+                            LOGGER.debug("- Season {}", season.getNumber());
+                            season.getEpisodes().forEach(episode -> {
+                                LOGGER.debug("- {} - {}", episode.getNumber(), episode.getTitle());
+                            });
+                        });
+                    }
                 } else {
                     LOGGER.warn("Build model of {} ignored", content);
                 }
