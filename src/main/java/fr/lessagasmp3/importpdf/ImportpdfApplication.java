@@ -1,5 +1,6 @@
 package fr.lessagasmp3.importpdf;
 
+import fr.lessagasmp3.core.entity.Anecdote;
 import fr.lessagasmp3.core.entity.DistributionEntry;
 import fr.lessagasmp3.core.entity.Saga;
 import fr.lessagasmp3.core.entity.Season;
@@ -47,6 +48,9 @@ public class ImportpdfApplication {
 
     @Autowired
     private WebsiteExtractor websiteExtractor;
+
+    @Autowired
+    private AnecdoteParser anecdoteParser;
 
     @Autowired
     private CreationParser creationParser;
@@ -114,12 +118,12 @@ public class ImportpdfApplication {
             LOGGER.error("No pdf was detected");
             throw new IllegalArgumentException();
         }
-
 /*
 		for(int i = 0 ; i < 1 ; i++) {
 			//String content = "Donjon de Naheulbeuk.pdf";
 			//String content = "Dieu en peignoir (le).pdf";
-			String content = "Crash  La revanche.pdf";
+			//String content = "Crash  La revanche.pdf";
+			String content = "Ⅲème Légion.pdf";
 			parseFile(pdfsFolderPath, content);
 		}
 */
@@ -268,6 +272,7 @@ public class ImportpdfApplication {
                     Set<CategoryModel> kinds;
                     Set<DistributionEntry> distributionEntries;
                     Set<Season> seasonsSet;
+                    Set<Anecdote> anecdotesSet;
                     Saga saga = new Saga();
                     LOGGER.info("Build model");
 /*
@@ -326,7 +331,6 @@ public class ImportpdfApplication {
                         saga.setTitle(title);
                         LOGGER.debug("TITLE : {}", saga.getTitle());
                     }
-*/
 
                     if(synopsis != null) {
                         saga.setSynopsis(textParser.parse(synopsis));
@@ -335,6 +339,7 @@ public class ImportpdfApplication {
 
                     if(episodes != null) {
                         seasonsSet = episodeParser.parse(episodes);
+                        LOGGER.debug("SEASONS :");
                         seasonsSet.forEach(season -> {
                             LOGGER.debug("- Season {}", season.getNumber());
                             season.getEpisodes().forEach(episode -> {
@@ -342,12 +347,19 @@ public class ImportpdfApplication {
                             });
                         });
                     }
+*/
+                    if(anecdotes != null) {
+                        anecdotesSet = anecdoteParser.parse(genese);
+                        LOGGER.debug("ANECDOTES :");
+                        anecdotesSet.forEach(anecdote -> LOGGER.debug("- {}", anecdote));
+                    }
+
                 } else {
                     LOGGER.warn("Build model of {} ignored", content);
                 }
 
             }
-        } catch (IOException e) {
+        } catch (IOException | NumberFormatException e) {
             LOGGER.error(e.getMessage(), e);
         }
 
