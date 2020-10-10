@@ -9,7 +9,7 @@ import java.time.format.DateTimeFormatter;
 @Service
 public class DurationParser {
 
-    public Duration parse(String duration) {
+    public Long parse(String duration) {
         duration = duration.toLowerCase();
         if (duration.startsWith("-")) {
             return null;
@@ -52,7 +52,7 @@ public class DurationParser {
         days+= hours / 24;
         hours = hours % 24;
         duration = String.format("%d:%02d:%02d:%02d", days, hours, minutes, seconds);
-        return Duration.between(LocalTime.MIN, LocalTime.parse(duration, DateTimeFormatter.ofPattern("d:HH:mm:ss")));
+        return Duration.between(LocalTime.MIN, LocalTime.parse(duration, DateTimeFormatter.ofPattern("d:HH:mm:ss"))).getSeconds();
     }
 
 }

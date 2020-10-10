@@ -45,12 +45,12 @@ public class EpisodeParser {
                 String[] splitHyphen = new String[1];
                 splitHyphen[0] = lines[lineNumber];
                 if(splitHyphen1.length > 1) {
-                    String seasonName = splitHyphen1[1];
+                    season.setName(splitHyphen1[1]);
                     splitHyphen = splitHyphen1;
                 }
                 if(splitHyphen2.length > 1) {
                     LOGGER.debug(lines[lineNumber]);
-                    String seasonName = splitHyphen2[1];
+                    season.setName(splitHyphen2[1]);
                     splitHyphen = splitHyphen2;
                 }
                 String seasonNumber = splitHyphen[0].toUpperCase()
@@ -67,12 +67,12 @@ public class EpisodeParser {
                 String[] splitHyphen = splitHyphen(splitHyphen1, splitHyphen2);
                 if(splitHyphen == null && lineNumber > 0) {
                     String multiline = lines[lineNumber-1] + lines[lineNumber];
-                    splitHyphen1 = lines[lineNumber].split("- ");
-                    splitHyphen2 = lines[lineNumber].split("– ");
+                    splitHyphen1 = multiline.split("- ");
+                    splitHyphen2 = multiline.split("– ");
                     splitHyphen = splitHyphen(splitHyphen1, splitHyphen2);
                     if(splitHyphen != null) {
                         Episode episode = new Episode();
-                        String episodeDisplayedNumber = splitHyphen[0];
+                        episode.setDisplayedNumber(splitHyphen[0]);
                         String[] splitParenthesis = splitHyphen[1].split("\\(");
                         if(splitHyphen[1].split("\\(").length > 1) {
                             episode.setTitle(splitParenthesis[0]);
@@ -86,7 +86,7 @@ public class EpisodeParser {
                     }
                 } else if(splitHyphen != null) {
                     Episode episode = new Episode();
-                    String episodeDisplayedNumber = splitHyphen[0];
+                    episode.setDisplayedNumber(splitHyphen[0]);
                     String[] splitParenthesis = splitHyphen[1].split("\\(");
                     if(splitHyphen[1].split("\\(").length > 1) {
                         episode.setTitle(splitParenthesis[0]);

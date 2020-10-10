@@ -23,12 +23,16 @@ public class CategoryService extends HttpClientService {
         return null;
     }
 
-    public void create(CategoryModel category) {
+    public CategoryModel create(CategoryModel category) {
         String url = coreUrl + "/api/categories";
         String body = gson.toJson(category);
         LOGGER.debug("POST " + url);
         LOGGER.debug("body : " + body);
-        executeRequest(new HttpPost(url), body);
+        String json = executeRequest(new HttpPost(url), body);
+        if(json != null) {
+            return gson.fromJson(json, CategoryModel.class);
+        }
+        return null;
     }
 
     public void update(CategoryModel category) {

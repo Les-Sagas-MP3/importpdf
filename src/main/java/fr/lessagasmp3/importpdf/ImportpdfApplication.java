@@ -2,12 +2,13 @@ package fr.lessagasmp3.importpdf;
 
 import fr.lessagasmp3.core.entity.Anecdote;
 import fr.lessagasmp3.core.entity.DistributionEntry;
-import fr.lessagasmp3.core.entity.Saga;
 import fr.lessagasmp3.core.entity.Season;
 import fr.lessagasmp3.core.model.CategoryModel;
 import fr.lessagasmp3.core.model.CreatorModel;
+import fr.lessagasmp3.core.model.SagaModel;
 import fr.lessagasmp3.importpdf.extractor.*;
 import fr.lessagasmp3.importpdf.parser.*;
+import fr.lessagasmp3.importpdf.service.SagaService;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.pdfbox.text.PDFTextStripperByArea;
@@ -76,6 +77,9 @@ public class ImportpdfApplication {
     @Autowired
     private TextParser textParser;
 
+    @Autowired
+    private SagaService sagaService;
+
     @Value("${fr.lessagasmp3.importpdf.root.folder}")
     private String rootFolderPath;
 
@@ -122,8 +126,8 @@ public class ImportpdfApplication {
 		for(int i = 0 ; i < 1 ; i++) {
 			//String content = "Donjon de Naheulbeuk.pdf";
 			//String content = "Dieu en peignoir (le).pdf";
-			//String content = "Crash  La revanche.pdf";
-			String content = "Ⅲème Légion.pdf";
+			String content = "Crash  La revanche.pdf";
+			//String content = "Ⅲème Légion.pdf";
 			parseFile(pdfsFolderPath, content);
 		}
 */
@@ -273,85 +277,95 @@ public class ImportpdfApplication {
                     Set<DistributionEntry> distributionEntries;
                     Set<Season> seasonsSet;
                     Set<Anecdote> anecdotesSet;
-                    Saga saga = new Saga();
+                    SagaModel saga = new SagaModel();
                     LOGGER.info("Build model");
-/*
-                    if(authors != null) {
-                        authorsSet = creatorParser.parse(authors);
-                        LOGGER.debug("AUTHORS : {}", authorsSet);
-                    }
-
-                    if(music != null) {
-                        composers = creatorParser.parse(music);
-                        LOGGER.debug("MUSIC : {}", composers);
-                    }
-
-                    if(origin != null && !origin.startsWith("-")) {
-                        saga.setOrigin(origin);
-                    }
-
-                    if(kind != null) {
-                        kinds = categoryParser.parse(kind);
-                        LOGGER.debug("KINDS: {}", kinds);
-                    }
-
-                    if(style != null) {
-                        styles = categoryParser.parse(style);
-                        LOGGER.debug("STYLES : {}", styles);
-                    }
-
-                    if(status != null) {
-                        saga.setStatus(statusParser.parse(status));
-                        LOGGER.debug("STATUS : {}", saga.getStatus());
-                    }
-
-                    if(creation != null) {
-                        saga.setStartDate(creationParser.parse(creation));
-                        LOGGER.debug("CREATION : {}", saga.getStartDate());
-                    }
-
-                    if (duration != null) {
-                        saga.setDuration(durationParser.parse(duration));
-                        LOGGER.debug("DURATION : {}", saga.getDuration());
-                    }
-
-                    if(website != null) {
-                        saga.setUrl(website);
-                        LOGGER.debug("WEBSITE : {}", saga.getUrl());
-                    }
-
-                    if(distribution != null) {
-                        distributionEntries = distributionParser.parse(distribution);
-                        distributionEntries.forEach(distributionEntry -> {
-                            LOGGER.debug("{} - {}", distributionEntry.getActor(), distributionEntry.getRoles());
-                        });
-                    }
 
                     if(title != null) {
                         saga.setTitle(title);
                         LOGGER.debug("TITLE : {}", saga.getTitle());
-                    }
 
-                    if(synopsis != null) {
-                        saga.setSynopsis(textParser.parse(synopsis));
-                        LOGGER.debug("SYNOPSIS : {}", saga.getSynopsis());
-                    }
+                        saga = sagaService.findOrCreate(saga.getTitle());
 
-                    if(episodes != null) {
-                        seasonsSet = episodeParser.parse(episodes);
-                        LOGGER.debug("SEASONS :");
-                        seasonsSet.forEach(season -> {
-                            LOGGER.debug("- Season {}", season.getNumber());
-                            season.getEpisodes().forEach(episode -> {
-                                LOGGER.debug("- {} - {}", episode.getNumber(), episode.getTitle());
+                        if(authors != null) {
+                            authorsSet = creatorParser.parse(authors);
+                            LOGGER.debug("AUTHORS : {}", authorsSet);
+                        }
+
+                        if(music != null) {
+                            composers = creatorParser.parse(music);
+                            LOGGER.debug("MUSIC : {}", composers);
+                        }
+
+                        if(origin != null && !origin.startsWith("-")) {
+                            saga.setOrigin(origin);
+                            LOGGER.debug("ORIGIN : {}", saga.getOrigin());
+                        }
+
+                        if(kind != null) {
+                            kinds = categoryParser.parse(kind);
+                            LOGGER.debug("KINDS: {}", kinds);
+                        }
+
+                        if(style != null) {
+                            styles = categoryParser.parse(style);
+                            LOGGER.debug("STYLES : {}", styles);
+                        }
+
+                        if(status != null) {
+                            saga.setStatus(statusParser.parse(status));
+                            LOGGER.debug("STATUS : {}", saga.getStatus());
+                        }
+
+                        if(creation != null) {
+                            saga.setStartDate(creationParser.parse(creation));
+                            LOGGER.debug("CREATION : {}", saga.getStartDate());
+                        }
+
+                        if (duration != null) {
+                            saga.setDuration(durationParser.parse(duration));
+                            LOGGER.debug("DURATION : {}", saga.getDuration());
+                        }
+
+                        if(website != null) {
+                            saga.setUrl(website);
+                            LOGGER.debug("WEBSITE : {}", saga.getUrl());
+                        }
+
+                        if(distribution != null) {
+                            distributionEntries = distributionParser.parse(distribution);
+                            distributionEntries.forEach(distributionEntry -> LOGGER.debug("{} - {}", distributionEntry.getActor(), distributionEntry.getRoles()));
+                        }
+
+                        if(synopsis != null) {
+                            saga.setSynopsis(textParser.parse(synopsis));
+                            LOGGER.debug("SYNOPSIS : {}", saga.getSynopsis());
+                        }
+
+                        if(episodes != null) {
+                            seasonsSet = episodeParser.parse(episodes);
+                            LOGGER.debug("SEASONS :");
+                            seasonsSet.forEach(season -> {
+                                LOGGER.debug("- Season {}", season.getNumber());
+                                season.getEpisodes().forEach(episode -> LOGGER.debug("- {} - {}", episode.getNumber(), episode.getTitle()));
                             });
-                        });
-                    }
-*/
-                    if(anecdotes != null) {
-                        anecdotesSet = anecdoteParser.parse(genese);
-                        LOGGER.debug("ANECDOTES :");
-                        anecdotesSet.forEach(anecdote -> LOGGER.debug("- {}", anecdote));
+                        }
+
+                        if(genese != null) {
+                            saga.setGenese(textParser.parse(genese));
+                            LOGGER.debug("GENESE : {}", saga.getGenese());
+                        }
+
+                        if(anecdotes != null) {
+                            anecdotesSet = anecdoteParser.parse(anecdotes);
+                            LOGGER.debug("ANECDOTES :");
+                            anecdotesSet.forEach(anecdote -> LOGGER.debug("- {}", anecdote));
+                        }
+
+                        if(recompenses != null) {
+                            saga.setAwards(recompenses);
+                            LOGGER.debug("AWARDS : {}", saga.getAwards());
+                        }
+
                     }
 
                 } else {
