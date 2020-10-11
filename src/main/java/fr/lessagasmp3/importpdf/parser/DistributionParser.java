@@ -1,8 +1,8 @@
 package fr.lessagasmp3.importpdf.parser;
 
-import fr.lessagasmp3.core.entity.Creator;
 import fr.lessagasmp3.core.entity.DistributionEntry;
-import fr.lessagasmp3.importpdf.service.AuthorService;
+import fr.lessagasmp3.importpdf.service.CreatorService;
+import fr.lessagasmp3.importpdf.service.DistributionEntryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,17 +17,18 @@ public class DistributionParser {
     private static final Logger LOGGER = LoggerFactory.getLogger(DistributionParser.class);
 
     @Autowired
-    private AuthorService authorService;
+    private CreatorService creatorService;
 
-    public Set<DistributionEntry> parse(String distributionString) {
+    @Autowired
+    private DistributionEntryService distributionEntryService;
+
+    public Set<DistributionEntry> parse(String distributionString, Long sagaId) {
         String[] lines = distributionString.split("\n");
         Set<DistributionEntry> distributionEntries = new LinkedHashSet<>();
         for(int lineNumber = 0 ; lineNumber < lines.length ; lineNumber++) {
             String[] lineSplit = lines[lineNumber].split(" - ");
             StringBuilder currentRoles;
             if(lineSplit.length == 2) {
-                DistributionEntry distributionEntry = new DistributionEntry();
-                distributionEntry.setActor(Creator.fromModel(authorService.findOrCreate(lineSplit[0])));
                 currentRoles = new StringBuilder(lineSplit[1]);
                 if(lineNumber+1 < lines.length) {
                     boolean newCreatorFound = lines[lineNumber+1].split(" - ").length > 1;
@@ -41,8 +42,12 @@ public class DistributionParser {
                         }
                     }
                 }
-                distributionEntry.setRoles(currentRoles.toString());
-                distributionEntries.add(distributionEntry);
+                distributionEntries.add(
+                        DistributionEntry.fromModel(
+                                distributionEntryService.findOrCreate(
+                                        creatorService.findOrCreate(lineSplit[0]).getId(),
+                                        sagaId,
+                                        currentRoles.toString())));
             }
         }
         return distributionEntries;

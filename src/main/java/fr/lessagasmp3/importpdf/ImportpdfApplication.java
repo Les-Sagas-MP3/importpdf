@@ -122,19 +122,19 @@ public class ImportpdfApplication {
             LOGGER.error("No pdf was detected");
             throw new IllegalArgumentException();
         }
-/*
+
 		for(int i = 0 ; i < 1 ; i++) {
-			//String content = "Donjon de Naheulbeuk.pdf";
+			String content = "Donjon de Naheulbeuk.pdf";
 			//String content = "Dieu en peignoir (le).pdf";
-			String content = "Crash  La revanche.pdf";
+			//String content = "Crash  La revanche.pdf";
 			//String content = "Ⅲème Légion.pdf";
 			parseFile(pdfsFolderPath, content);
 		}
-*/
+/*
         for (String content : contents) {
             parseFile(pdfsFolderPath, content);
         }
-
+*/
         ctx.close();
 
     }
@@ -332,7 +332,7 @@ public class ImportpdfApplication {
                         }
 
                         if(distribution != null) {
-                            distributionEntries = distributionParser.parse(distribution);
+                            distributionEntries = distributionParser.parse(distribution, saga.getId());
                             distributionEntries.forEach(distributionEntry -> LOGGER.debug("{} - {}", distributionEntry.getActor(), distributionEntry.getRoles()));
                         }
 
@@ -342,12 +342,7 @@ public class ImportpdfApplication {
                         }
 
                         if(episodes != null) {
-                            seasonsSet = episodeParser.parse(episodes);
-                            LOGGER.debug("SEASONS :");
-                            seasonsSet.forEach(season -> {
-                                LOGGER.debug("- Season {}", season.getNumber());
-                                season.getEpisodes().forEach(episode -> LOGGER.debug("- {} - {}", episode.getNumber(), episode.getTitle()));
-                            });
+                            episodeParser.parse(episodes, saga.getId());
                         }
 
                         if(genese != null) {
@@ -356,7 +351,7 @@ public class ImportpdfApplication {
                         }
 
                         if(anecdotes != null) {
-                            anecdotesSet = anecdoteParser.parse(anecdotes);
+                            anecdotesSet = anecdoteParser.parse(anecdotes, saga.getId());
                             LOGGER.debug("ANECDOTES :");
                             anecdotesSet.forEach(anecdote -> LOGGER.debug("- {}", anecdote));
                         }
@@ -365,6 +360,8 @@ public class ImportpdfApplication {
                             saga.setAwards(recompenses);
                             LOGGER.debug("AWARDS : {}", saga.getAwards());
                         }
+
+                        sagaService.update(saga);
 
                     }
 

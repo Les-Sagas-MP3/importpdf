@@ -1,7 +1,7 @@
 package fr.lessagasmp3.importpdf.parser;
 
 import fr.lessagasmp3.core.model.CreatorModel;
-import fr.lessagasmp3.importpdf.service.AuthorService;
+import fr.lessagasmp3.importpdf.service.CreatorService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,7 +16,7 @@ public class CreatorParser {
     private static final Logger LOGGER = LoggerFactory.getLogger(CreatorParser.class);
 
     @Autowired
-    private AuthorService authorService;
+    private CreatorService creatorService;
 
     public Set<CreatorModel> parse(String creatorsString) {
         Set<CreatorModel> creators = new LinkedHashSet<>();
@@ -27,20 +27,14 @@ public class CreatorParser {
                 .replace(" |", "|");
         String[] splitAuthors = creatorsString.split("\\|");
         for (String authorStr : splitAuthors) {
-            CreatorModel creator = authorService.findByName(authorStr);
+            CreatorModel creator = creatorService.findByName(authorStr);
             if (creator == null) {
                 creator = new CreatorModel();
                 creator.setName(authorStr);
-                creator.setNbSagas(1);
-                authorService.create(creator);
+                creator = creatorService.create(creator);
                 LOGGER.debug("Creator {} created", creator.getName());
             } else {
                 LOGGER.debug("Creator already exists : ID={} NAME={}", creator.getId(), creator.getName());
-
-                // TODO : Report those lines after saving saga
-                //author.setNbSagas(author.getNbSagas() + 1);
-                //authorService.update(author);
-                //LOGGER.debug("Creator {} updated", author.getId());
             }
             creators.add(creator);
         }

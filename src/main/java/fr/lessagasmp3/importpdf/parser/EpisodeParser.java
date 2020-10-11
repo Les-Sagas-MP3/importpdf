@@ -1,63 +1,55 @@
 package fr.lessagasmp3.importpdf.parser;
 
-import fr.lessagasmp3.core.entity.Episode;
-import fr.lessagasmp3.core.entity.Season;
+import fr.lessagasmp3.core.model.EpisodeModel;
+import fr.lessagasmp3.core.model.SeasonModel;
+import fr.lessagasmp3.importpdf.service.EpisodeService;
+import fr.lessagasmp3.importpdf.service.SeasonService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
-import java.util.LinkedHashSet;
-import java.util.Set;
 
 @Service
 public class EpisodeParser {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(EpisodeParser.class);
 
-    public Set<Season> parse(String episodes) {
+    @Autowired
+    private EpisodeService episodeService;
+
+    @Autowired
+    private SeasonService seasonService;
+
+    public void parse(String episodes, Long sagaId) {
         String[] lines = episodes.split("\n");
-        Set<Season> seasons = new LinkedHashSet<>();
-        Integer episodeNumber = 0;
-        Season season = new Season();
-        season.setNumber(1);
+        int episodeNumber = 1;
+        SeasonModel season = seasonService.findOrCreate(1, sagaId);
         for(int lineNumber = 0 ; lineNumber < lines.length ; lineNumber++) {
 
             String upperLine = lines[lineNumber].toUpperCase();
-            if(upperLine.startsWith("SAISON")) {
-                if(lineNumber > 0) {
-                    seasons.add(season);
-                }
-                season = new Season();
-                String seasonNumber = upperLine
-                        .replace("SAISON ", "")
-                        .replace(" ", "");
-                season.setNumber(Integer.valueOf(seasonNumber));
-                episodeNumber = 0;
-                lineNumber++;
-            }
-            if(upperLine.startsWith("SÉRIE")) {
-                if(lineNumber > 0) {
-                    seasons.add(season);
-                }
-                season = new Season();
+            if(upperLine.startsWith("SAISON") || upperLine.startsWith("SÉRIE")) {
                 String[] splitHyphen1 = lines[lineNumber].split("- ");
                 String[] splitHyphen2 = lines[lineNumber].split("– ");
                 String[] splitHyphen = new String[1];
                 splitHyphen[0] = lines[lineNumber];
+                String seasonName = "";
                 if(splitHyphen1.length > 1) {
-                    season.setName(splitHyphen1[1]);
+                    seasonName =splitHyphen1[1];
                     splitHyphen = splitHyphen1;
                 }
                 if(splitHyphen2.length > 1) {
                     LOGGER.debug(lines[lineNumber]);
-                    season.setName(splitHyphen2[1]);
+                    seasonName =splitHyphen2[1];
                     splitHyphen = splitHyphen2;
                 }
                 String seasonNumber = splitHyphen[0].toUpperCase()
+                        .replace("SAISON ", "")
                         .replace("SÉRIE ", "")
                         .replace(" ", "");
-                season.setNumber(Integer.valueOf(seasonNumber));
-                episodeNumber = 0;
+                season = seasonService.findOrCreate(Integer.valueOf(seasonNumber), sagaId);
+                season.setName(seasonName);
+                seasonService.update(season);
+                episodeNumber = 1;
                 lineNumber++;
             }
 
@@ -71,7 +63,7 @@ public class EpisodeParser {
                     splitHyphen2 = multiline.split("– ");
                     splitHyphen = splitHyphen(splitHyphen1, splitHyphen2);
                     if(splitHyphen != null) {
-                        Episode episode = new Episode();
+                        EpisodeModel episode = episodeService.findOrCreate(episodeNumber, season.getId());
                         episode.setDisplayedNumber(splitHyphen[0]);
                         String[] splitParenthesis = splitHyphen[1].split("\\(");
                         if(splitHyphen[1].split("\\(").length > 1) {
@@ -80,12 +72,11 @@ public class EpisodeParser {
                         } else {
                             episode.setTitle(splitHyphen[1]);
                         }
-                        episode.setNumber(episodeNumber);
+                        episodeService.update(episode);
                         episodeNumber++;
-                        season.getEpisodes().add(episode);
                     }
                 } else if(splitHyphen != null) {
-                    Episode episode = new Episode();
+                    EpisodeModel episode = episodeService.findOrCreate(episodeNumber, season.getId());
                     episode.setDisplayedNumber(splitHyphen[0]);
                     String[] splitParenthesis = splitHyphen[1].split("\\(");
                     if(splitHyphen[1].split("\\(").length > 1) {
@@ -94,18 +85,12 @@ public class EpisodeParser {
                     } else {
                         episode.setTitle(splitHyphen[1]);
                     }
-                    episode.setNumber(episodeNumber);
+                    episodeService.update(episode);
                     episodeNumber++;
-                    season.getEpisodes().add(episode);
                 }
-
                 LOGGER.debug(lines[lineNumber]);
             }
         }
-
-        seasons.add(season);
-
-        return seasons;
     }
 
     private String[] splitHyphen(String[] splitHyphen1, String[] splitHyphen2) {

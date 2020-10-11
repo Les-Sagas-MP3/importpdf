@@ -1,6 +1,8 @@
 package fr.lessagasmp3.importpdf.parser;
 
 import fr.lessagasmp3.core.entity.Anecdote;
+import fr.lessagasmp3.importpdf.service.AnecdoteService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashSet;
@@ -9,18 +11,19 @@ import java.util.Set;
 @Service
 public class AnecdoteParser {
 
-    public Set<Anecdote> parse(String anecdotes) {
+    @Autowired
+    private AnecdoteService anecdoteService;
+
+    public Set<Anecdote> parse(String anecdotes, Long sagaId) {
         String[] paragraphs = anecdotes.split("\\.\n");
         Set<Anecdote> anecdotesSet = new LinkedHashSet<>();
 
         if(paragraphs.length == 1) {
-            Anecdote anecdote = new Anecdote();
-            anecdote.setAnecdote(anecdotes.replace("\n", ""));
+            Anecdote anecdote = Anecdote.fromModel(anecdoteService.findOrCreate(anecdotes.replace("\n", ""), sagaId));
             anecdotesSet.add(anecdote);
         } else {
             for (String paragraph : paragraphs) {
-                Anecdote anecdote = new Anecdote();
-                anecdote.setAnecdote(paragraph.replace("\n", "") + ".\n");
+                Anecdote anecdote = Anecdote.fromModel(anecdoteService.findOrCreate(paragraph.replace("\n", "") + ".\n", sagaId));
                 anecdotesSet.add(anecdote);
             }
         }

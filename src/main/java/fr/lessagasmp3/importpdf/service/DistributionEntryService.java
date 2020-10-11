@@ -14,10 +14,11 @@ public class DistributionEntryService extends HttpClientService {
     private static final Logger LOGGER = LoggerFactory.getLogger(DistributionEntryService.class);
 
     public DistributionEntryModel findOrCreate(Long actorId, Long sagaId, String roles) {
-        DistributionEntryModel distributionEntry = findByActorIdSagaIdAndRoles(actorId, sagaId, roles);
+        DistributionEntryModel distributionEntry = findByActorIdAndSagaIdAndRoles(actorId, sagaId, roles);
         if (distributionEntry == null) {
             distributionEntry = new DistributionEntryModel();
             distributionEntry.setActorRef(actorId);
+            distributionEntry.setSagaRef(sagaId);
             distributionEntry.setRoles(roles);
             distributionEntry = create(distributionEntry);
             if(distributionEntry != null) {
@@ -31,7 +32,7 @@ public class DistributionEntryService extends HttpClientService {
         return distributionEntry;
     }
 
-    public DistributionEntryModel findByActorIdSagaIdAndRoles(Long actorId, Long sagaId, String roles) {
+    public DistributionEntryModel findByActorIdAndSagaIdAndRoles(Long actorId, Long sagaId, String roles) {
         String url = coreUrl + "/api/distribution?actorId=" + actorId + "&sagaId=" + sagaId + "&roles=" + encodeValue(roles);
         LOGGER.debug("GET " + url);
         String json = executeRequest(new HttpGet(url));

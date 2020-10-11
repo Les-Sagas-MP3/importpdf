@@ -11,9 +11,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
-public class AuthorService extends HttpClientService {
+public class CreatorService extends HttpClientService {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(AuthorService.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(CreatorService.class);
 
     @Autowired
     private Gson gson;
