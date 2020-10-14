@@ -8,6 +8,7 @@ import fr.lessagasmp3.core.model.CreatorModel;
 import fr.lessagasmp3.core.model.SagaModel;
 import fr.lessagasmp3.importpdf.extractor.*;
 import fr.lessagasmp3.importpdf.parser.*;
+import fr.lessagasmp3.importpdf.service.ImgurService;
 import fr.lessagasmp3.importpdf.service.SagaService;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
@@ -25,6 +26,7 @@ import org.springframework.context.event.EventListener;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Set;
 
 @SpringBootApplication(exclude = {DataSourceAutoConfiguration.class})
@@ -78,6 +80,9 @@ public class ImportpdfApplication {
     private TextParser textParser;
 
     @Autowired
+    private ImgurService imgurService;
+
+    @Autowired
     private SagaService sagaService;
 
     @Value("${fr.lessagasmp3.importpdf.root.folder}")
@@ -85,6 +90,8 @@ public class ImportpdfApplication {
 
     @Value("${fr.lessagasmp3.importpdf.ignoreManualCheck}")
     private Boolean ignoreManualCheck;
+
+    private String imgurAlbumHash = "";
 
     public static void main(String[] args) {
         SpringApplication.run(ImportpdfApplication.class, args);
@@ -363,6 +370,8 @@ public class ImportpdfApplication {
 
                         sagaService.update(saga);
 
+                        upload(saga.getTitle(), "pochette");
+
                     }
 
                 } else {
@@ -376,5 +385,15 @@ public class ImportpdfApplication {
 
     }
 
+    public void upload(String sagaTitle, String imageType) {
+        File f = new File(rootFolderPath + File.separator + "images");
+        File[] matchingFiles = f.listFiles((dir, name) ->
+                name.toLowerCase().contains(sagaTitle.toLowerCase()) && name.toLowerCase().contains(imageType));
+        if(matchingFiles == null || matchingFiles.length != 1) {
+            return;
+        }
+        Arrays.stream(matchingFiles).forEach(img -> LOGGER.debug(img.getName()));
+        imgurAlbumHash = imgurService.createAlbum("Cover");
+    }
 
 }
