@@ -91,7 +91,8 @@ public class ImportpdfApplication {
     @Value("${fr.lessagasmp3.importpdf.ignoreManualCheck}")
     private Boolean ignoreManualCheck;
 
-    private String imgurAlbumHash = "";
+    @Value("${imgur.album.cover}")
+    private String albumCoverHash;
 
     public static void main(String[] args) {
         SpringApplication.run(ImportpdfApplication.class, args);
@@ -370,7 +371,15 @@ public class ImportpdfApplication {
 
                         sagaService.update(saga);
 
-                        upload(saga.getTitle(), "pochette");
+                        String url = upload(saga.getTitle(), "pochette");
+                        if(url != null) {
+                            saga.setCoverUrl(url);
+                        }
+                        url = upload(saga.getTitle(), "ban");
+                        if(url != null) {
+                            saga.setBackgroundUrl(url);
+                        }
+                        sagaService.update(saga);
 
                     }
 
@@ -385,15 +394,19 @@ public class ImportpdfApplication {
 
     }
 
-    public void upload(String sagaTitle, String imageType) {
+    public String upload(String sagaTitle, String imageType) {
         File f = new File(rootFolderPath + File.separator + "images");
         File[] matchingFiles = f.listFiles((dir, name) ->
                 name.toLowerCase().contains(sagaTitle.toLowerCase()) && name.toLowerCase().contains(imageType));
-        if(matchingFiles == null || matchingFiles.length != 1) {
-            return;
+        if(matchingFiles == null || matchingFiles.length == 0) {
+            return null;
         }
         Arrays.stream(matchingFiles).forEach(img -> LOGGER.debug(img.getName()));
-        imgurAlbumHash = imgurService.createAlbum("Cover");
+
+        if(albumCoverHash == null || albumCoverHash.equals("")) {
+            albumCoverHash = imgurService.createAlbum();
+        }
+        return imgurService.upload(matchingFiles[0], albumCoverHash, sagaTitle);
     }
 
 }
