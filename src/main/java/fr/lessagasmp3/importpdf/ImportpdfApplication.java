@@ -161,7 +161,8 @@ public class ImportpdfApplication {
         }
 */
         for (String content : contents) {
-            parseFile(pdfsFolderPath, content);
+            String title = parseFile(pdfsFolderPath, content);
+            moveFile(pdfsFolderPath, content, title, "data.pdf");
         }
 
         ctx.close();
