@@ -10,6 +10,7 @@ import fr.lessagasmp3.importpdf.extractor.*;
 import fr.lessagasmp3.importpdf.parser.*;
 import fr.lessagasmp3.importpdf.service.ImgurService;
 import fr.lessagasmp3.importpdf.service.SagaService;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.pdfbox.text.PDFTextStripperByArea;
@@ -26,6 +27,9 @@ import org.springframework.context.event.EventListener;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Set;
 
@@ -109,7 +113,15 @@ public class ImportpdfApplication {
         }
         LOGGER.info("{} : OK", rootFolderPath);
 
-        String pdfsFolderPath = rootFolderPath + File.separator + "pdfs";
+        String inputFolderPath = rootFolderPath + File.separator + "input";
+        File inputFolder = new File(inputFolderPath);
+        if (!inputFolder.exists() || !inputFolder.isDirectory()) {
+            LOGGER.error("The path {} does not exist or is not a directory", inputFolderPath);
+            throw new IllegalArgumentException();
+        }
+        LOGGER.info("{} : OK", inputFolderPath);
+
+        String pdfsFolderPath = inputFolderPath + File.separator + "pdfs";
         File pdfsFolder = new File(pdfsFolderPath);
         if (!pdfsFolder.exists() || !pdfsFolder.isDirectory()) {
             LOGGER.error("The path {} does not exist or is not a directory", pdfsFolderPath);
@@ -117,7 +129,7 @@ public class ImportpdfApplication {
         }
         LOGGER.info("{} : OK", pdfsFolderPath);
 
-        String imagesFolderPath = rootFolderPath + File.separator + "images";
+        String imagesFolderPath = inputFolderPath + File.separator + "images";
         File imagesFolder = new File(pdfsFolderPath);
         if (!imagesFolder.exists() || !imagesFolder.isDirectory()) {
             LOGGER.error("The path {} does not exist or is not a directory", imagesFolderPath);
@@ -125,29 +137,38 @@ public class ImportpdfApplication {
         }
         LOGGER.info("{} : OK", imagesFolderPath);
 
+        String outputFolderPath = rootFolderPath + File.separator + "output";
+        File outputFolder = new File(outputFolderPath);
+        if (!outputFolder.exists() || !outputFolder.isDirectory()) {
+            LOGGER.error("The path {} does not exist or is not a directory", outputFolderPath);
+            throw new IllegalArgumentException();
+        }
+        LOGGER.info("{} : OK", outputFolderPath);
+
         String[] contents = pdfsFolder.list();
         if (contents == null) {
             LOGGER.error("No pdf was detected");
             throw new IllegalArgumentException();
         }
-
+/*
 		for(int i = 0 ; i < 1 ; i++) {
 			String content = "Donjon de Naheulbeuk.pdf";
 			//String content = "Dieu en peignoir (le).pdf";
 			//String content = "Crash  La revanche.pdf";
 			//String content = "Ⅲème Légion.pdf";
-			parseFile(pdfsFolderPath, content);
-		}
-/*
+			String title = parseFile(pdfsFolderPath, content);
+            moveFile(pdfsFolderPath, content, title, "data.pdf");
+        }
+*/
         for (String content : contents) {
             parseFile(pdfsFolderPath, content);
         }
-*/
+
         ctx.close();
 
     }
 
-    private void parseFile(String folderPath, String content) {
+    private String parseFile(String folderPath, String content) {
 
         // Output data
         String authors;
@@ -168,6 +189,7 @@ public class ImportpdfApplication {
         String genese;
         String recompenses;
         Boolean[] needsManualCheck;
+        SagaModel saga = new SagaModel();
 
         String pdfPath = folderPath + File.separator + content;
         LOGGER.info("File : {}", content);
@@ -285,7 +307,6 @@ public class ImportpdfApplication {
                     Set<DistributionEntry> distributionEntries;
                     Set<Season> seasonsSet;
                     Set<Anecdote> anecdotesSet;
-                    SagaModel saga = new SagaModel();
                     LOGGER.info("Build model");
 
                     if(title != null) {
@@ -371,6 +392,11 @@ public class ImportpdfApplication {
 
                         sagaService.update(saga);
 
+                        File theDir = new File(rootFolderPath + File.separator + "output" + File.separator + saga.getTitle());
+                        if (!theDir.exists()){
+                            theDir.mkdirs();
+                        }
+
                         String url = upload(saga.getTitle(), "pochette");
                         if(url != null) {
                             saga.setCoverUrl(url);
@@ -392,21 +418,40 @@ public class ImportpdfApplication {
             LOGGER.error(e.getMessage(), e);
         }
 
+        return saga.getTitle();
+
     }
 
-    public String upload(String sagaTitle, String imageType) {
-        File f = new File(rootFolderPath + File.separator + "images");
+    private String upload(String sagaTitle, String imageType) {
+        String imageFolderPath = rootFolderPath + File.separator + "input" + File.separator + "images";
+        File f = new File(imageFolderPath);
         File[] matchingFiles = f.listFiles((dir, name) ->
                 name.toLowerCase().contains(sagaTitle.toLowerCase()) && name.toLowerCase().contains(imageType));
         if(matchingFiles == null || matchingFiles.length == 0) {
             return null;
         }
         Arrays.stream(matchingFiles).forEach(img -> LOGGER.debug(img.getName()));
-
         if(albumCoverHash == null || albumCoverHash.equals("")) {
             albumCoverHash = imgurService.createAlbum();
         }
-        return imgurService.upload(matchingFiles[0], albumCoverHash, sagaTitle);
+        String url = imgurService.upload(matchingFiles[0], albumCoverHash, sagaTitle);
+        moveFile(imageFolderPath, matchingFiles[0].getName(), sagaTitle, imageType + "." + FilenameUtils.getExtension(matchingFiles[0].getName()));
+        return url;
+    }
+
+    private void moveFile(String folderPath, String content, String sagaTitle, String destName) {
+        Path result = null;
+        try {
+            result = Files.move(Paths.get(folderPath + File.separator + content), Paths.get(rootFolderPath + File.separator + "output" + File.separator + sagaTitle + File.separator + destName));
+        } catch (IOException e) {
+            LOGGER.error("Exception while moving file: {}", e.getMessage(), e);
+        }
+        if(result != null) {
+            System.out.println("File moved successfully.");
+            LOGGER.info("File {} moved successfully", content);
+        }else{
+            LOGGER.error("File {} movement failed", content);
+        }
     }
 
 }
