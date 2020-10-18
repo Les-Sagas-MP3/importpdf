@@ -1,6 +1,7 @@
 package fr.lessagasmp3.importpdf.parser;
 
 import fr.lessagasmp3.core.model.CreatorModel;
+import fr.lessagasmp3.importpdf.extractor.LinesExtractor;
 import fr.lessagasmp3.importpdf.service.CreatorService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,6 +28,7 @@ public class CreatorParser {
                 .replace(" |", "|");
         String[] splitAuthors = creatorsString.split("\\|");
         for (String authorStr : splitAuthors) {
+            authorStr = LinesExtractor.removeLastSpaces(authorStr);
             CreatorModel creator = creatorService.findByName(authorStr);
             if (creator == null) {
                 creator = new CreatorModel();

@@ -38,7 +38,6 @@ public class ImgurService extends HttpClientService {
 
     public String createAlbum() {
         String url = "https://api.imgur.com/3/album";
-        LOGGER.debug("POST " + url);
 
         HttpEntity entity = MultipartEntityBuilder.create()
                 .setMode(HttpMultipartMode.BROWSER_COMPATIBLE)
@@ -98,6 +97,7 @@ public class ImgurService extends HttpClientService {
                 return responseString;
             } else {
                 LOGGER.error("response : " + responseString);
+                throw new IllegalStateException("Error while requesting Imgur");
             }
         } catch (IOException e) {
             LOGGER.error(e.getMessage(), e);

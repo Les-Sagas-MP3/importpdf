@@ -2,6 +2,7 @@ package fr.lessagasmp3.importpdf.service;
 
 import com.google.gson.Gson;
 import fr.lessagasmp3.core.constant.Strings;
+import fr.lessagasmp3.importpdf.extractor.LinesExtractor;
 import org.apache.http.HttpException;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpRequest;
@@ -27,6 +28,7 @@ import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.stream.Collectors;
 
 @Service
 public class HttpClientService {
@@ -77,13 +79,18 @@ public class HttpClientService {
     }
 
     protected String executeRequest(HttpRequestBase request) {
-        request.addHeader("Content-Type", "application/json; charset=UTF-8");
+        request.addHeader("Content-Type", "application/json");
         request.addHeader("Authorization", "Bearer " + token);
         CloseableHttpResponse response;
         try (CloseableHttpClient httpClient = getHttpClient()) {
+            LOGGER.debug("{} : {}", request.getMethod(), request.getURI());
             response = httpClient.execute(request);
             String responseString = getStringResponse(response);
-            LOGGER.debug("response : " + responseString);
+            if(responseString != null && !responseString.isEmpty()) {
+                LOGGER.debug("response : " + responseString);
+            } else {
+                LOGGER.debug("response : <empty>");
+            }
             return responseString;
         } catch (IOException e) {
             LOGGER.error(e.getMessage(), e);
@@ -92,11 +99,18 @@ public class HttpClientService {
     }
 
     protected String executeRequest(HttpEntityEnclosingRequestBase request, String body) {
-        request.addHeader("Content-Type", "application/json; charset=UTF-8");
+        request.addHeader("Content-Type", "application/json");
         request.addHeader("Authorization", "Bearer " + token);
         CloseableHttpResponse response;
         try (CloseableHttpClient httpClient = getHttpClient()) {
-            request.setEntity(new StringEntity(body));
+            StringEntity e = new StringEntity(body, StandardCharsets.UTF_8);
+            e.setContentEncoding("UTF-8");
+            e.setContentType("application/json");
+            LOGGER.debug("{} : {}", request.getMethod(), request.getURI());
+            LOGGER.debug("BODY : {}", body);
+            String text = new BufferedReader(new InputStreamReader(e.getContent(), StandardCharsets.UTF_8)).lines().collect(Collectors.joining("\n"));
+            LOGGER.debug("ENTITY : {}", text);
+            request.setEntity(e);
             response = httpClient.execute(request);
             String responseString = getStringResponse(response);
             if(response.getStatusLine().getStatusCode() == 200) {
@@ -112,13 +126,13 @@ public class HttpClientService {
     }
 
     public String getStringResponse(CloseableHttpResponse response) throws IOException {
-        BufferedReader reader = new BufferedReader(new InputStreamReader(response.getEntity().getContent()));
+        BufferedReader reader = new BufferedReader(new InputStreamReader(response.getEntity().getContent(), StandardCharsets.UTF_8));
         String inputLine;
         StringBuilder responseString = new StringBuilder();
         while ((inputLine = reader.readLine()) != null) {
             responseString.append(inputLine);
         }
-        return responseString.toString();
+        return LinesExtractor.convertToUtf8(responseString.toString());
     }
 
     protected static String encodeValue(String value) {

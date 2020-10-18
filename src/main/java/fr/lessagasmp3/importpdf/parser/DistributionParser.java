@@ -1,6 +1,7 @@
 package fr.lessagasmp3.importpdf.parser;
 
 import fr.lessagasmp3.core.entity.DistributionEntry;
+import fr.lessagasmp3.importpdf.extractor.LinesExtractor;
 import fr.lessagasmp3.importpdf.service.CreatorService;
 import fr.lessagasmp3.importpdf.service.DistributionEntryService;
 import org.slf4j.Logger;
@@ -47,7 +48,7 @@ public class DistributionParser {
                                 distributionEntryService.findOrCreate(
                                         creatorService.findOrCreate(lineSplit[0]).getId(),
                                         sagaId,
-                                        currentRoles.toString())));
+                                        LinesExtractor.removeLastSpaces(currentRoles.toString()))));
             }
         }
         return distributionEntries;

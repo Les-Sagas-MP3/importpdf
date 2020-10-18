@@ -2,6 +2,7 @@ package fr.lessagasmp3.importpdf.parser;
 
 import fr.lessagasmp3.core.model.EpisodeModel;
 import fr.lessagasmp3.core.model.SeasonModel;
+import fr.lessagasmp3.importpdf.extractor.LinesExtractor;
 import fr.lessagasmp3.importpdf.service.EpisodeService;
 import fr.lessagasmp3.importpdf.service.SeasonService;
 import org.slf4j.Logger;
@@ -47,7 +48,7 @@ public class EpisodeParser {
                         .replace("SÉRIE ", "")
                         .replace(" ", "");
                 season = seasonService.findOrCreate(Integer.valueOf(seasonNumber), sagaId);
-                season.setName(seasonName);
+                season.setName(LinesExtractor.removeLastSpaces(seasonName));
                 seasonService.update(season);
                 episodeNumber = 1;
                 lineNumber++;
@@ -67,10 +68,10 @@ public class EpisodeParser {
                         episode.setDisplayedNumber(splitHyphen[0]);
                         String[] splitParenthesis = splitHyphen[1].split("\\(");
                         if(splitHyphen[1].split("\\(").length > 1) {
-                            episode.setTitle(splitParenthesis[0]);
+                            episode.setTitle(LinesExtractor.removeLastSpaces(splitParenthesis[0]));
                             episode.setInfos(splitParenthesis[1].replace(")", ""));
                         } else {
-                            episode.setTitle(splitHyphen[1]);
+                            episode.setTitle(LinesExtractor.removeLastSpaces(splitHyphen[1]));
                         }
                         episodeService.update(episode);
                         episodeNumber++;
@@ -80,10 +81,10 @@ public class EpisodeParser {
                     episode.setDisplayedNumber(splitHyphen[0]);
                     String[] splitParenthesis = splitHyphen[1].split("\\(");
                     if(splitHyphen[1].split("\\(").length > 1) {
-                        episode.setTitle(splitParenthesis[0]);
+                        episode.setTitle(LinesExtractor.removeLastSpaces(splitParenthesis[0]));
                         episode.setInfos(splitParenthesis[1].replace(")", ""));
                     } else {
-                        episode.setTitle(splitHyphen[1]);
+                        episode.setTitle(LinesExtractor.removeLastSpaces(splitHyphen[1]));
                     }
                     episodeService.update(episode);
                     episodeNumber++;

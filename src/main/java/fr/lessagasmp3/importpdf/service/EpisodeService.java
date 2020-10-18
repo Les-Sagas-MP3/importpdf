@@ -38,10 +38,9 @@ public class EpisodeService extends HttpClientService {
 
     public EpisodeModel findByNumberAndSeasonId(Integer number, Long seasonId) {
         String url = coreUrl + "/api/episode?number=" + number + "&seasonId=" + seasonId;
-        LOGGER.debug("GET " + url);
         String json = executeRequest(new HttpGet(url));
         if(json != null) {
-            return gson.fromJson(executeRequest(new HttpGet(url)), EpisodeModel.class);
+            return gson.fromJson(json, EpisodeModel.class);
         }
         return null;
     }
@@ -49,8 +48,6 @@ public class EpisodeService extends HttpClientService {
     public EpisodeModel create(EpisodeModel model) {
         String url = coreUrl + "/api/episode";
         String body = gson.toJson(model);
-        LOGGER.debug("POST " + url);
-        LOGGER.debug("body : " + body);
         String json = executeRequest(new HttpPost(url), body);
         if(json != null) {
             return gson.fromJson(json, EpisodeModel.class);
@@ -61,8 +58,6 @@ public class EpisodeService extends HttpClientService {
     public void update(EpisodeModel model) {
         String url = coreUrl + "/api/episode";
         String body = gson.toJson(model);
-        LOGGER.debug("PUT " + url);
-        LOGGER.debug("body : " + body);
         executeRequest(new HttpPut(url), body);
     }
 

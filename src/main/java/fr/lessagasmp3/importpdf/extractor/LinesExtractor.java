@@ -4,6 +4,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.IntStream;
+
 @Service
 public class LinesExtractor {
 
@@ -25,9 +33,13 @@ public class LinesExtractor {
                 lineNumber++;
                 separatedEntities.append(lines[lineNumber]);
                 LOGGER.debug(lines[lineNumber]);
-                nextLine = lines[lineNumber + 1].toUpperCase();
-                for (String nextTag : nextTags) {
-                    reachedNextTag |= nextLine.startsWith(nextTag);
+                if (lineNumber + 1 < lines.length) {
+                    nextLine = lines[lineNumber + 1].toUpperCase();
+                    for (String nextTag : nextTags) {
+                        reachedNextTag |= nextLine.startsWith(nextTag);
+                    }
+                } else {
+                    reachedNextTag = true;
                 }
             }
             lineParsed = separatedEntities.toString();
@@ -54,6 +66,7 @@ public class LinesExtractor {
                     nextLine = lines[lineNumber + 1].toUpperCase();
                     for (String nextTag : nextTags) {
                         reachedNextTag |= nextLine.startsWith(nextTag);
+                        LOGGER.debug("nextLine : {} starts with {} ? {}", nextLine, nextTag, reachedNextTag);
                     }
                 } else {
                     reachedNextTag = true;
@@ -65,4 +78,37 @@ public class LinesExtractor {
         return lineParsed;
     }
 
+    public static String convertToUtf8(String str) {
+        if(str == null || str.isEmpty()) {
+            return "";
+        }
+        LOGGER.debug("Convert {} to UTF-8", str);
+        ByteBuffer byteBuff = ByteBuffer.wrap(str.getBytes());
+        CharBuffer cb = Charset.forName("windows-1252").decode(byteBuff);
+        ByteBuffer bb = StandardCharsets.UTF_8.encode(cb);
+        List<Byte> bytesWithoutZeroes = new ArrayList<>();
+        int byteNumber = 0;
+        byte currentByte = bb.array()[byteNumber];
+        while(currentByte != 0 && byteNumber < bb.limit()) {
+            currentByte = bb.array()[byteNumber];
+            bytesWithoutZeroes.add(currentByte);
+            byteNumber++;
+        }
+        byte[] finalBytes = new byte[bytesWithoutZeroes.size()];
+        StringBuilder byteStr = new StringBuilder();
+        IntStream.range(0, bytesWithoutZeroes.size())
+                .forEach(index -> {
+                    finalBytes[index] = bytesWithoutZeroes.get(index);
+                    byteStr.append(finalBytes[index]).append(" ");
+                });
+        LOGGER.debug("Bytes : {}", byteStr.toString());
+        String utf8Str = new String(finalBytes);
+        LOGGER.debug("Result : {}", utf8Str);
+        //return utf8Str;
+        return str;
+    }
+
+    public static String removeLastSpaces(String str) {
+        return str.replaceAll("\\s+$", "");
+    }
 }

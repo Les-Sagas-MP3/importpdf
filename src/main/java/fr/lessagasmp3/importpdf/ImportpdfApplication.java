@@ -2,7 +2,6 @@ package fr.lessagasmp3.importpdf;
 
 import fr.lessagasmp3.core.entity.Anecdote;
 import fr.lessagasmp3.core.entity.DistributionEntry;
-import fr.lessagasmp3.core.entity.Season;
 import fr.lessagasmp3.core.model.CategoryModel;
 import fr.lessagasmp3.core.model.CreatorModel;
 import fr.lessagasmp3.core.model.SagaModel;
@@ -28,15 +27,22 @@ import org.springframework.context.event.EventListener;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.Set;
 
 @SpringBootApplication(exclude = {DataSourceAutoConfiguration.class})
 public class ImportpdfApplication {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ImportpdfApplication.class);
+    private static final String CREATION = LinesExtractor.convertToUtf8("CRÉATION");
+    private static final String SERIE = LinesExtractor.convertToUtf8("SÉRIE");
+    private static final String EPISODE = LinesExtractor.convertToUtf8("ÉPISODE");
+    private static final String GENESE = LinesExtractor.convertToUtf8("GENÈSE");
+    private static final String RECOMPENSE = LinesExtractor.convertToUtf8("RÉCOMPENSE");
 
     @Autowired
     private ConfigurableApplicationContext ctx;
@@ -98,6 +104,13 @@ public class ImportpdfApplication {
     @Value("${imgur.album.cover}")
     private String albumCoverHash;
 
+    private long lastUploadTs = 0L;
+
+    static {
+        System.setProperty("file.encoding", "UTF-8");
+        System.setProperty("sun.jnu.encoding", "UTF-8");
+    }
+
     public static void main(String[] args) {
         SpringApplication.run(ImportpdfApplication.class, args);
     }
@@ -151,18 +164,19 @@ public class ImportpdfApplication {
             throw new IllegalArgumentException();
         }
 /*
-		for(int i = 0 ; i < 1 ; i++) {
-			String content = "Donjon de Naheulbeuk.pdf";
-			//String content = "Dieu en peignoir (le).pdf";
-			//String content = "Crash  La revanche.pdf";
-			//String content = "Ⅲème Légion.pdf";
-			String title = parseFile(pdfsFolderPath, content);
-            moveFile(pdfsFolderPath, content, title, "data.pdf");
+        for (int i = 0; i < 1; i++) {
+            String content = "Donjon de Naheulbeuk.pdf";
+            //String content = "Dieu en peignoir (le).pdf";
+            //String content = "Crash  La revanche.pdf";
+            //String content = "Ⅲème Légion.pdf";
+            //String content = "#Pauvirés.pdf";
+            String title = parseFile(pdfsFolderPath, content);
+            moveFile(pdfsFolderPath, content, cleanFilename(title), "data.pdf");
         }
 */
         for (String content : contents) {
             String title = parseFile(pdfsFolderPath, content);
-            moveFile(pdfsFolderPath, content, title, "data.pdf");
+            moveFile(pdfsFolderPath, content, cleanFilename(title), "data.pdf");
         }
 
         ctx.close();
@@ -194,7 +208,10 @@ public class ImportpdfApplication {
 
         String pdfPath = folderPath + File.separator + content;
         LOGGER.info("File : {}", content);
+
         try (PDDocument document = PDDocument.load(new File(pdfPath))) {
+
+            content = LinesExtractor.convertToUtf8(content);
 
             authors = null;
             music = null;
@@ -223,7 +240,11 @@ public class ImportpdfApplication {
 
                 LOGGER.info("Parsing PDF");
                 //split by whitespace
-                String[] lines = pdfFileInText.split("\\r?\\n");
+                String[] rawLines = pdfFileInText.split("\\r?\\n");
+                String[] lines = new String[rawLines.length];
+                for (int lineNumber = 0; lineNumber < rawLines.length; lineNumber++) {
+                    lines[lineNumber] = LinesExtractor.convertToUtf8(rawLines[lineNumber]);
+                }
                 for (int lineNumber = 0; lineNumber < lines.length; lineNumber++) {
                     String line = lines[lineNumber];
                     LOGGER.debug("Analyzing line {} : {}", lineNumber, line);
@@ -249,16 +270,16 @@ public class ImportpdfApplication {
                         kind = linesExtractor.extractLines(kind, "GENRE", nextTagKind, lines, lineNumber);
 
                         // Style
-                        String[] nextTagStyle = {"CRÉATION", "STATUT"};
+                        String[] nextTagStyle = {CREATION, "STATUT"};
                         style = linesExtractor.extractLines(style, "STYLE", nextTagStyle, lines, lineNumber);
 
                         // Status
-                        String[] nextTagStatus = {"CRÉATION", "SAISON", "SÉRIE", "ARC", "1ER SÉRIE", "BLOC 1", "CYCLE 1", "OPUS 1"};
+                        String[] nextTagStatus = {CREATION, "SAISON", SERIE, "ARC", "1ER " + SERIE, "BLOC 1", "CYCLE 1", "OPUS 1"};
                         status = linesExtractor.extractLines(status, "STATUT", nextTagStatus, lines, lineNumber);
 
                         // Creation
-                        String[] nextTagCreation = {"STATUT", "SAISON", "SÉRIE", "ARC", "1ER SÉRIE", "BLOC 1", "CYCLE 1", "OPUS 1"};
-                        creation = linesExtractor.extractLines(creation, "CRÉATION", nextTagCreation, lines, lineNumber);
+                        String[] nextTagCreation = {"STATUT", "SAISON", SERIE, "ARC", "1ER " + SERIE, "BLOC 1", "CYCLE 1", "OPUS 1"};
+                        creation = linesExtractor.extractLines(creation, CREATION, nextTagCreation, lines, lineNumber);
 
                         // Duration
                         String[] nextTagDuration = {"BONUS"};
@@ -280,73 +301,80 @@ public class ImportpdfApplication {
                     title = titleExtractor.extract(title, lines, lineNumber, content, needsManualCheck);
 
                     // Synopsis
-                    String[] nextTagsSynopsis = {"ÉPISODE", "ANECDOTE", "GENÈSE"};
+                    String[] nextTagsSynopsis = {EPISODE, "ANECDOTE", GENESE};
                     synopsis = linesExtractor.extractMultilines(synopsis, "SYNOPSIS", nextTagsSynopsis, lines, lineNumber);
 
                     // Episodes
-                    String[] nextTagsEpisodes = {"ANECDOTE", "GENÈSE"};
-                    episodes = linesExtractor.extractMultilines(episodes, "ÉPISODE", nextTagsEpisodes, lines, lineNumber);
+                    String[] nextTagsEpisodes = {"ANECDOTE", GENESE};
+                    episodes = linesExtractor.extractMultilines(episodes, EPISODE, nextTagsEpisodes, lines, lineNumber);
 
                     // Genese
-                    String[] nextTagsGenese = {"ANECDOTES"};
-                    genese = linesExtractor.extractMultilines(genese, "GENÈSE", nextTagsGenese, lines, lineNumber);
+                    String[] nextTagsGenese = {"ANECDOTE"};
+                    genese = linesExtractor.extractMultilines(genese, GENESE, nextTagsGenese, lines, lineNumber);
 
                     // Anecdotes
-                    String[] nextTagsAnecdotes = {"RÉCOMPENSES"};
+                    String[] nextTagsAnecdotes = {RECOMPENSE};
                     anecdotes = linesExtractor.extractMultilines(anecdotes, "ANECDOTE", nextTagsAnecdotes, lines, lineNumber);
 
                     // Recompenses
                     String[] nextTagsRecompenses = {};
-                    recompenses = linesExtractor.extractMultilines(recompenses, "RÉCOMPENSES", nextTagsRecompenses, lines, lineNumber);
+                    recompenses = linesExtractor.extractMultilines(recompenses, RECOMPENSE, nextTagsRecompenses, lines, lineNumber);
                 }
 
-                if(!ignoreManualCheck || !needsManualCheck[0]) {
+                if (!ignoreManualCheck || !needsManualCheck[0]) {
                     Set<CreatorModel> authorsSet;
                     Set<CreatorModel> composers;
                     Set<CategoryModel> styles;
                     Set<CategoryModel> kinds;
                     Set<DistributionEntry> distributionEntries;
-                    Set<Season> seasonsSet;
                     Set<Anecdote> anecdotesSet;
                     LOGGER.info("Build model");
 
-                    if(title != null) {
-                        saga.setTitle(title);
+                    if (title != null && !title.isEmpty() && !LinesExtractor.removeLastSpaces(title).isEmpty()) {
+                        saga.setTitle(LinesExtractor.removeLastSpaces(title));
                         LOGGER.debug("TITLE : {}", saga.getTitle());
 
                         saga = sagaService.findOrCreate(saga.getTitle());
 
-                        if(authors != null) {
+                        if (authors != null) {
                             authorsSet = creatorParser.parse(authors);
                             LOGGER.debug("AUTHORS : {}", authorsSet);
+                            SagaModel finalSaga = saga;
+                            authorsSet.forEach(author -> sagaService.addAuthor(finalSaga.getId(), author.getId()));
                         }
 
-                        if(music != null) {
+                        if (music != null) {
                             composers = creatorParser.parse(music);
                             LOGGER.debug("MUSIC : {}", composers);
+                            SagaModel finalSaga = saga;
+                            composers.forEach(composer -> sagaService.addComposer(finalSaga.getId(), composer.getId()));
                         }
 
-                        if(origin != null && !origin.startsWith("-")) {
-                            saga.setOrigin(origin);
+                        if (origin != null && !origin.startsWith("-")) {
+                            saga.setOrigin(LinesExtractor.removeLastSpaces(origin));
                             LOGGER.debug("ORIGIN : {}", saga.getOrigin());
                         }
 
-                        if(kind != null) {
+                        if (kind != null) {
                             kinds = categoryParser.parse(kind);
                             LOGGER.debug("KINDS: {}", kinds);
+                            SagaModel finalSaga = saga;
+                            kinds.forEach(oneKind -> sagaService.addCategory(finalSaga.getId(), oneKind.getId()));
                         }
 
-                        if(style != null) {
+                        if (style != null) {
                             styles = categoryParser.parse(style);
                             LOGGER.debug("STYLES : {}", styles);
+                            SagaModel finalSaga = saga;
+                            styles.forEach(oneStyle -> sagaService.addCategory(finalSaga.getId(), oneStyle.getId()));
                         }
 
-                        if(status != null) {
+                        if (status != null) {
                             saga.setStatus(statusParser.parse(status));
                             LOGGER.debug("STATUS : {}", saga.getStatus());
                         }
 
-                        if(creation != null) {
+                        if (creation != null) {
                             saga.setStartDate(creationParser.parse(creation));
                             LOGGER.debug("CREATION : {}", saga.getStartDate());
                         }
@@ -356,54 +384,56 @@ public class ImportpdfApplication {
                             LOGGER.debug("DURATION : {}", saga.getDuration());
                         }
 
-                        if(website != null) {
-                            saga.setUrl(website);
+                        if (website != null) {
+                            saga.setUrl(LinesExtractor.removeLastSpaces(website));
                             LOGGER.debug("WEBSITE : {}", saga.getUrl());
                         }
 
-                        if(distribution != null) {
+                        if (distribution != null) {
                             distributionEntries = distributionParser.parse(distribution, saga.getId());
                             distributionEntries.forEach(distributionEntry -> LOGGER.debug("{} - {}", distributionEntry.getActor(), distributionEntry.getRoles()));
                         }
 
-                        if(synopsis != null) {
+                        if (synopsis != null) {
                             saga.setSynopsis(textParser.parse(synopsis));
                             LOGGER.debug("SYNOPSIS : {}", saga.getSynopsis());
                         }
 
-                        if(episodes != null) {
+                        if (episodes != null) {
                             episodeParser.parse(episodes, saga.getId());
                         }
 
-                        if(genese != null) {
+                        if (genese != null) {
                             saga.setGenese(textParser.parse(genese));
                             LOGGER.debug("GENESE : {}", saga.getGenese());
                         }
 
-                        if(anecdotes != null) {
+                        if (anecdotes != null) {
                             anecdotesSet = anecdoteParser.parse(anecdotes, saga.getId());
                             LOGGER.debug("ANECDOTES :");
                             anecdotesSet.forEach(anecdote -> LOGGER.debug("- {}", anecdote));
                         }
 
-                        if(recompenses != null) {
+                        if (recompenses != null) {
                             saga.setAwards(recompenses);
                             LOGGER.debug("AWARDS : {}", saga.getAwards());
                         }
 
                         sagaService.update(saga);
 
-                        File theDir = new File(rootFolderPath + File.separator + "output" + File.separator + saga.getTitle());
-                        if (!theDir.exists()){
+                        String path = rootFolderPath + File.separator + "output" + File.separator + cleanFilename(saga.getTitle());
+                        LOGGER.debug("Create {} output path", path);
+                        File theDir = new File(path);
+                        if (!theDir.exists()) {
                             theDir.mkdirs();
                         }
 
                         String url = upload(saga.getTitle(), "pochette");
-                        if(url != null) {
+                        if (url != null) {
                             saga.setCoverUrl(url);
                         }
                         url = upload(saga.getTitle(), "ban");
-                        if(url != null) {
+                        if (url != null) {
                             saga.setBackgroundUrl(url);
                         }
                         sagaService.update(saga);
@@ -415,28 +445,33 @@ public class ImportpdfApplication {
                 }
 
             }
-        } catch (IOException | NumberFormatException e) {
+        } catch (IOException | NumberFormatException | InterruptedException | IllegalStateException e) {
             LOGGER.error(e.getMessage(), e);
         }
 
         return saga.getTitle();
-
     }
 
-    private String upload(String sagaTitle, String imageType) {
+    private String upload(String sagaTitle, String imageType) throws InterruptedException {
         String imageFolderPath = rootFolderPath + File.separator + "input" + File.separator + "images";
         File f = new File(imageFolderPath);
         File[] matchingFiles = f.listFiles((dir, name) ->
                 name.toLowerCase().contains(sagaTitle.toLowerCase()) && name.toLowerCase().contains(imageType));
-        if(matchingFiles == null || matchingFiles.length == 0) {
+        if (matchingFiles == null || matchingFiles.length == 0) {
             return null;
         }
         Arrays.stream(matchingFiles).forEach(img -> LOGGER.debug(img.getName()));
-        if(albumCoverHash == null || albumCoverHash.equals("")) {
+        if (albumCoverHash == null || albumCoverHash.equals("")) {
             albumCoverHash = imgurService.createAlbum();
         }
-        String url = imgurService.upload(matchingFiles[0], albumCoverHash, sagaTitle);
-        moveFile(imageFolderPath, matchingFiles[0].getName(), sagaTitle, imageType + "." + FilenameUtils.getExtension(matchingFiles[0].getName()));
+        long currentTs = new Date().getTime();
+        while(currentTs - lastUploadTs < 3000) {
+            currentTs = new Date().getTime();
+            Thread.sleep(1000);
+        }
+        String url = imgurService.upload(matchingFiles[0], albumCoverHash, cleanFilename(sagaTitle));
+        lastUploadTs = new Date().getTime();
+        moveFile(imageFolderPath, matchingFiles[0].getName(), cleanFilename(sagaTitle), imageType + "." + FilenameUtils.getExtension(matchingFiles[0].getName()));
         return url;
     }
 
@@ -444,15 +479,20 @@ public class ImportpdfApplication {
         Path result = null;
         try {
             result = Files.move(Paths.get(folderPath + File.separator + content), Paths.get(rootFolderPath + File.separator + "output" + File.separator + sagaTitle + File.separator + destName));
-        } catch (IOException e) {
+        } catch (IOException | InvalidPathException e) {
             LOGGER.error("Exception while moving file: {}", e.getMessage(), e);
         }
-        if(result != null) {
+        if (result != null) {
             System.out.println("File moved successfully.");
             LOGGER.info("File {} moved successfully", content);
-        }else{
+        } else {
             LOGGER.error("File {} movement failed", content);
         }
+    }
+
+    private String cleanFilename(String str) {
+        return LinesExtractor.removeLastSpaces(str.replace("?", "")
+                .replace(":", "-"));
     }
 
 }

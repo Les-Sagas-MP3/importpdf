@@ -20,6 +20,7 @@ public class TitleExtractor {
                 LOGGER.warn("FILENAME : {}", filename);
                 needsManualCheck[0] = true;
             }
+            lineParsed = lineParsed.replace("–", "-");
         }
         return lineParsed;
     }

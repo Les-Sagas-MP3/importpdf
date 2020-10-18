@@ -1,6 +1,7 @@
 package fr.lessagasmp3.importpdf.parser;
 
 import fr.lessagasmp3.core.model.CategoryModel;
+import fr.lessagasmp3.importpdf.extractor.LinesExtractor;
 import fr.lessagasmp3.importpdf.service.CategoryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,6 +28,7 @@ public class CategoryParser {
                 .replace(" |", "|");
         String[] split = categoriesString.split("\\|");
         for (String categoryString : split) {
+            categoryString = LinesExtractor.removeLastSpaces(categoryString);
             CategoryModel category = categoryService.findByName(categoryString);
             if (category == null) {
                 category = new CategoryModel();

@@ -38,10 +38,9 @@ public class AnecdoteService extends HttpClientService {
 
     public AnecdoteModel findByAnecdoteAndSagaId(String content, Long sagaId) {
         String url = coreUrl + "/api/anecdote?content=" + encodeValue(content) + "&sagaId=" + sagaId;
-        LOGGER.debug("GET " + url);
         String json = executeRequest(new HttpGet(url));
         if(json != null) {
-            return gson.fromJson(executeRequest(new HttpGet(url)), AnecdoteModel.class);
+            return gson.fromJson(json, AnecdoteModel.class);
         }
         return null;
     }

@@ -15,10 +15,9 @@ public class CategoryService extends HttpClientService {
 
     public CategoryModel findByName(String name) {
         String url = coreUrl + "/api/categories?name=" + encodeValue(name);
-        LOGGER.debug("GET " + url);
         String json = executeRequest(new HttpGet(url));
         if(json != null) {
-            return gson.fromJson(executeRequest(new HttpGet(url)), CategoryModel.class);
+            return gson.fromJson(json, CategoryModel.class);
         }
         return null;
     }
@@ -26,8 +25,6 @@ public class CategoryService extends HttpClientService {
     public CategoryModel create(CategoryModel category) {
         String url = coreUrl + "/api/categories";
         String body = gson.toJson(category);
-        LOGGER.debug("POST " + url);
-        LOGGER.debug("body : " + body);
         String json = executeRequest(new HttpPost(url), body);
         if(json != null) {
             return gson.fromJson(json, CategoryModel.class);
@@ -38,8 +35,6 @@ public class CategoryService extends HttpClientService {
     public void update(CategoryModel category) {
         String url = coreUrl + "/api/categories";
         String body = gson.toJson(category);
-        LOGGER.debug("PUT " + url);
-        LOGGER.debug("body : " + body);
         executeRequest(new HttpPut(url), body);
     }
 

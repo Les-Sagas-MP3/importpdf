@@ -34,10 +34,9 @@ public class DistributionEntryService extends HttpClientService {
 
     public DistributionEntryModel findByActorIdAndSagaIdAndRoles(Long actorId, Long sagaId, String roles) {
         String url = coreUrl + "/api/distribution?actorId=" + actorId + "&sagaId=" + sagaId + "&roles=" + encodeValue(roles);
-        LOGGER.debug("GET " + url);
         String json = executeRequest(new HttpGet(url));
         if(json != null) {
-            return gson.fromJson(executeRequest(new HttpGet(url)), DistributionEntryModel.class);
+            return gson.fromJson(json, DistributionEntryModel.class);
         }
         return null;
     }
@@ -45,8 +44,6 @@ public class DistributionEntryService extends HttpClientService {
     public DistributionEntryModel create(DistributionEntryModel distributionEntry) {
         String url = coreUrl + "/api/distribution";
         String body = gson.toJson(distributionEntry);
-        LOGGER.debug("POST " + url);
-        LOGGER.debug("body : " + body);
         String json = executeRequest(new HttpPost(url), body);
         if(json != null) {
             return gson.fromJson(json, DistributionEntryModel.class);
@@ -57,8 +54,6 @@ public class DistributionEntryService extends HttpClientService {
     public void update(DistributionEntryModel distributionEntry) {
         String url = coreUrl + "/api/distribution";
         String body = gson.toJson(distributionEntry);
-        LOGGER.debug("PUT " + url);
-        LOGGER.debug("body : " + body);
         executeRequest(new HttpPut(url), body);
     }
 
