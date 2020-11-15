@@ -37,7 +37,7 @@ public class SeasonService extends HttpClientService {
     }
 
     public SeasonModel findByNumberAndSagaId(Integer number, Long sagaId) {
-        String url = coreUrl + "/api/season?number=" + number + "&sagaId=" + sagaId;
+        String url = coreUrl + "/season?number=" + number + "&sagaId=" + sagaId;
         String json = executeRequest(new HttpGet(url));
         if(json != null) {
             return gson.fromJson(json, SeasonModel.class);
@@ -46,7 +46,7 @@ public class SeasonService extends HttpClientService {
     }
 
     public SeasonModel create(SeasonModel model) {
-        String url = coreUrl + "/api/season";
+        String url = coreUrl + "/season";
         String body = gson.toJson(model);
         String json = executeRequest(new HttpPost(url), body);
         if(json != null) {
@@ -56,7 +56,7 @@ public class SeasonService extends HttpClientService {
     }
 
     public void update(SeasonModel model) {
-        String url = coreUrl + "/api/season";
+        String url = coreUrl + "/season";
         String body = gson.toJson(model);
         executeRequest(new HttpPut(url), body);
     }

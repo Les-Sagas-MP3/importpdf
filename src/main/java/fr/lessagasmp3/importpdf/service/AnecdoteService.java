@@ -37,7 +37,7 @@ public class AnecdoteService extends HttpClientService {
     }
 
     public AnecdoteModel findByAnecdoteAndSagaId(String content, Long sagaId) {
-        String url = coreUrl + "/api/anecdote?content=" + encodeValue(content) + "&sagaId=" + sagaId;
+        String url = coreUrl + "/anecdote?content=" + encodeValue(content) + "&sagaId=" + sagaId;
         String json = executeRequest(new HttpGet(url));
         if(json != null) {
             return gson.fromJson(json, AnecdoteModel.class);
@@ -46,7 +46,7 @@ public class AnecdoteService extends HttpClientService {
     }
 
     public AnecdoteModel create(AnecdoteModel model) {
-        String url = coreUrl + "/api/anecdote";
+        String url = coreUrl + "/anecdote";
         String body = gson.toJson(model);
         LOGGER.debug("POST " + url);
         LOGGER.debug("body : " + body);
@@ -58,7 +58,7 @@ public class AnecdoteService extends HttpClientService {
     }
 
     public void update(AnecdoteModel model) {
-        String url = coreUrl + "/api/anecdote";
+        String url = coreUrl + "/anecdote";
         String body = gson.toJson(model);
         LOGGER.debug("PUT " + url);
         LOGGER.debug("body : " + body);

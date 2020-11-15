@@ -3,6 +3,7 @@ package fr.lessagasmp3.importpdf.service;
 import com.google.gson.Gson;
 import fr.lessagasmp3.core.constant.Strings;
 import fr.lessagasmp3.importpdf.extractor.LinesExtractor;
+import org.apache.http.HttpEntity;
 import org.apache.http.HttpException;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpRequest;
@@ -11,7 +12,10 @@ import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.conn.routing.HttpRoute;
 import org.apache.http.conn.routing.HttpRoutePlanner;
+import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
+import org.apache.http.entity.mime.HttpMultipartMode;
+import org.apache.http.entity.mime.MultipartEntityBuilder;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.conn.DefaultProxyRoutePlanner;
@@ -22,12 +26,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.UnsupportedEncodingException;
+import java.io.*;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.stream.Collectors;
 
 @Service
@@ -110,6 +113,31 @@ public class HttpClientService {
             LOGGER.debug("BODY : {}", body);
             String text = new BufferedReader(new InputStreamReader(e.getContent(), StandardCharsets.UTF_8)).lines().collect(Collectors.joining("\n"));
             LOGGER.debug("ENTITY : {}", text);
+            request.setEntity(e);
+            response = httpClient.execute(request);
+            String responseString = getStringResponse(response);
+            if(response.getStatusLine().getStatusCode() == 200) {
+                LOGGER.debug("response : " + responseString);
+                return responseString;
+            } else {
+                LOGGER.error("response : " + responseString);
+            }
+        } catch (IOException e) {
+            LOGGER.error(e.getMessage(), e);
+        }
+        return null;
+    }
+
+    protected String executeRequest(HttpEntityEnclosingRequestBase request, File file) {
+        request.addHeader("Authorization", "Bearer " + token);
+        CloseableHttpResponse response;
+        try (CloseableHttpClient httpClient = getHttpClient()) {
+            HttpEntity e = MultipartEntityBuilder.create()
+                    .setMode(HttpMultipartMode.BROWSER_COMPATIBLE)
+                    .addBinaryBody("file", file, ContentType.parse(Files.probeContentType(Path.of(file.getPath()))), file.getName())
+                    .build();
+            LOGGER.debug("{} : {}", request.getMethod(), request.getURI());
+            LOGGER.debug("BODY : {}", e.getContentType());
             request.setEntity(e);
             response = httpClient.execute(request);
             String responseString = getStringResponse(response);

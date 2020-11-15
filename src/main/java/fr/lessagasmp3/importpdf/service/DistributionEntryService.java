@@ -33,7 +33,7 @@ public class DistributionEntryService extends HttpClientService {
     }
 
     public DistributionEntryModel findByActorIdAndSagaIdAndRoles(Long actorId, Long sagaId, String roles) {
-        String url = coreUrl + "/api/distribution?actorId=" + actorId + "&sagaId=" + sagaId + "&roles=" + encodeValue(roles);
+        String url = coreUrl + "/distribution?actorId=" + actorId + "&sagaId=" + sagaId + "&roles=" + encodeValue(roles);
         String json = executeRequest(new HttpGet(url));
         if(json != null) {
             return gson.fromJson(json, DistributionEntryModel.class);
@@ -42,7 +42,7 @@ public class DistributionEntryService extends HttpClientService {
     }
 
     public DistributionEntryModel create(DistributionEntryModel distributionEntry) {
-        String url = coreUrl + "/api/distribution";
+        String url = coreUrl + "/distribution";
         String body = gson.toJson(distributionEntry);
         String json = executeRequest(new HttpPost(url), body);
         if(json != null) {
@@ -52,7 +52,7 @@ public class DistributionEntryService extends HttpClientService {
     }
 
     public void update(DistributionEntryModel distributionEntry) {
-        String url = coreUrl + "/api/distribution";
+        String url = coreUrl + "/distribution";
         String body = gson.toJson(distributionEntry);
         executeRequest(new HttpPut(url), body);
     }

@@ -14,7 +14,7 @@ public class CategoryService extends HttpClientService {
     private static final Logger LOGGER = LoggerFactory.getLogger(CategoryService.class);
 
     public CategoryModel findByName(String name) {
-        String url = coreUrl + "/api/categories?name=" + encodeValue(name);
+        String url = coreUrl + "/categories?name=" + encodeValue(name);
         String json = executeRequest(new HttpGet(url));
         if(json != null) {
             return gson.fromJson(json, CategoryModel.class);
@@ -23,7 +23,7 @@ public class CategoryService extends HttpClientService {
     }
 
     public CategoryModel create(CategoryModel category) {
-        String url = coreUrl + "/api/categories";
+        String url = coreUrl + "/categories";
         String body = gson.toJson(category);
         String json = executeRequest(new HttpPost(url), body);
         if(json != null) {
@@ -33,7 +33,7 @@ public class CategoryService extends HttpClientService {
     }
 
     public void update(CategoryModel category) {
-        String url = coreUrl + "/api/categories";
+        String url = coreUrl + "/categories";
         String body = gson.toJson(category);
         executeRequest(new HttpPut(url), body);
     }

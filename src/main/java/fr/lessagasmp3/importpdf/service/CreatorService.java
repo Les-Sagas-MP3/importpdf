@@ -37,7 +37,7 @@ public class CreatorService extends HttpClientService {
     }
 
     public CreatorModel findByName(String name) {
-        String url = coreUrl + "/api/authors?name=" + encodeValue(name);
+        String url = coreUrl + "/authors?name=" + encodeValue(name);
         String json = executeRequest(new HttpGet(url));
         if(json != null) {
             return gson.fromJson(json, CreatorModel.class);
@@ -46,7 +46,7 @@ public class CreatorService extends HttpClientService {
     }
 
     public CreatorModel create(CreatorModel author) {
-        String url = coreUrl + "/api/authors";
+        String url = coreUrl + "/authors";
         String body = gson.toJson(author);
         String json = executeRequest(new HttpPost(url), body);
         if(json != null) {
@@ -56,7 +56,7 @@ public class CreatorService extends HttpClientService {
     }
 
     public void update(CreatorModel author) {
-        String url = coreUrl + "/api/authors";
+        String url = coreUrl + "/authors";
         String body = gson.toJson(author);
         executeRequest(new HttpPut(url), body);
     }

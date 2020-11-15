@@ -8,6 +8,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.io.File;
+
 @Service
 public class SagaService extends HttpClientService {
 
@@ -31,7 +33,7 @@ public class SagaService extends HttpClientService {
     }
 
     public SagaModel findByTitle(String title) {
-        String url = coreUrl + "/api/saga?title=" + encodeValue(title);
+        String url = coreUrl + "/saga?title=" + encodeValue(title);
         String json = executeRequest(new HttpGet(url));
         if(json != null) {
             return gson.fromJson(json, SagaModel.class);
@@ -40,7 +42,7 @@ public class SagaService extends HttpClientService {
     }
 
     public SagaModel create(SagaModel saga) {
-        String url = coreUrl + "/api/saga";
+        String url = coreUrl + "/saga";
         String body = gson.toJson(saga);
         String json = executeRequest(new HttpPost(url), body);
         if(json != null) {
@@ -50,7 +52,7 @@ public class SagaService extends HttpClientService {
     }
 
     public void update(SagaModel saga) {
-        String url = coreUrl + "/api/saga";
+        String url = coreUrl + "/saga";
         String body = gson.toJson(saga);
         LOGGER.debug("PUT " + url);
         LOGGER.debug("body : " + body);
@@ -58,17 +60,22 @@ public class SagaService extends HttpClientService {
     }
 
     public void addAuthor(Long id, Long authorId) {
-        String url = coreUrl + "/api/saga?id=" + id + "&authorId=" + authorId;
+        String url = coreUrl + "/saga?id=" + id + "&authorId=" + authorId;
         executeRequest(new HttpPost(url), "");
     }
 
     public void addComposer(Long id, Long composerId) {
-        String url = coreUrl + "/api/saga?id=" + id + "&composerId=" + composerId;
+        String url = coreUrl + "/saga?id=" + id + "&composerId=" + composerId;
         executeRequest(new HttpPost(url), "");
     }
 
     public void addCategory(Long id, Long categoryId) {
-        String url = coreUrl + "/api/saga?id=" + id + "&categoryId=" + categoryId;
+        String url = coreUrl + "/saga?id=" + id + "&categoryId=" + categoryId;
         executeRequest(new HttpPost(url), "");
+    }
+
+    public void uploadImg(Long id, File matchingFile, String endpoint) {
+        String url = coreUrl + "/saga/" + id + "/" + endpoint;
+        executeRequest(new HttpPost(url), matchingFile);
     }
 }

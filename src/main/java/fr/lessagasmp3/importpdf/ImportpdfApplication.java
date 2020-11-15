@@ -7,7 +7,6 @@ import fr.lessagasmp3.core.model.CreatorModel;
 import fr.lessagasmp3.core.model.SagaModel;
 import fr.lessagasmp3.importpdf.extractor.*;
 import fr.lessagasmp3.importpdf.parser.*;
-import fr.lessagasmp3.importpdf.service.ImgurService;
 import fr.lessagasmp3.importpdf.service.SagaService;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -90,9 +89,6 @@ public class ImportpdfApplication {
     private TextParser textParser;
 
     @Autowired
-    private ImgurService imgurService;
-
-    @Autowired
     private SagaService sagaService;
 
     @Value("${fr.lessagasmp3.importpdf.root.folder}")
@@ -100,9 +96,6 @@ public class ImportpdfApplication {
 
     @Value("${fr.lessagasmp3.importpdf.ignoreManualCheck}")
     private Boolean ignoreManualCheck;
-
-    @Value("${imgur.album.cover}")
-    private String albumCoverHash;
 
     private long lastUploadTs = 0L;
 
@@ -425,19 +418,13 @@ public class ImportpdfApplication {
                         LOGGER.debug("Create {} output path", path);
                         File theDir = new File(path);
                         if (!theDir.exists()) {
-                            theDir.mkdirs();
+                            if(!theDir.mkdirs()) {
+                                LOGGER.error("Cannot create {} dir", theDir.getPath());
+                            }
                         }
 
-                        String url = upload(saga.getTitle(), "pochette");
-                        if (url != null) {
-                            saga.setCoverUrl(url);
-                        }
-                        url = upload(saga.getTitle(), "ban");
-                        if (url != null) {
-                            saga.setBackgroundUrl(url);
-                        }
-                        sagaService.update(saga);
-
+                        upload(saga, "pochette", "cover");
+                        upload(saga, "ban", "banner");
                     }
 
                 } else {
@@ -452,27 +439,23 @@ public class ImportpdfApplication {
         return saga.getTitle();
     }
 
-    private String upload(String sagaTitle, String imageType) throws InterruptedException {
+    private void upload(SagaModel saga, String imageType, String endpoint) throws InterruptedException {
         String imageFolderPath = rootFolderPath + File.separator + "input" + File.separator + "images";
         File f = new File(imageFolderPath);
         File[] matchingFiles = f.listFiles((dir, name) ->
-                name.toLowerCase().contains(sagaTitle.toLowerCase()) && name.toLowerCase().contains(imageType));
+                name.toLowerCase().contains(saga.getTitle().toLowerCase()) && name.toLowerCase().contains("- " + imageType));
         if (matchingFiles == null || matchingFiles.length == 0) {
-            return null;
+            return;
         }
         Arrays.stream(matchingFiles).forEach(img -> LOGGER.debug(img.getName()));
-        if (albumCoverHash == null || albumCoverHash.equals("")) {
-            albumCoverHash = imgurService.createAlbum();
-        }
         long currentTs = new Date().getTime();
-        while(currentTs - lastUploadTs < 3000) {
+        while(currentTs - lastUploadTs < 2000) {
             currentTs = new Date().getTime();
             Thread.sleep(1000);
         }
-        String url = imgurService.upload(matchingFiles[0], albumCoverHash, cleanFilename(sagaTitle));
+        sagaService.uploadImg(saga.getId(), matchingFiles[0], endpoint);
         lastUploadTs = new Date().getTime();
-        moveFile(imageFolderPath, matchingFiles[0].getName(), cleanFilename(sagaTitle), imageType + "." + FilenameUtils.getExtension(matchingFiles[0].getName()));
-        return url;
+        moveFile(imageFolderPath, matchingFiles[0].getName(), cleanFilename(saga.getTitle()), imageType + "." + FilenameUtils.getExtension(matchingFiles[0].getName()));
     }
 
     private void moveFile(String folderPath, String content, String sagaTitle, String destName) {
