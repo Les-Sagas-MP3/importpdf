@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>fr.lessagasmp3</groupId>
 	<artifactId>importpdf</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>0.1.0</version>
 	<name>importpdf</name>
 	<description>Les Sagas MP3 - Import PDFs from Clator</description>
 
